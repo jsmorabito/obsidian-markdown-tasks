@@ -614,8 +614,7 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 			refresh();
 		});
 
-		const resetBtn = wrapper.createEl("button", { text: "Reset to defaults", cls: "chain-rule-add" });
-		resetBtn.style.marginLeft = "8px";
+		const resetBtn = wrapper.createEl("button", { text: "Reset to defaults", cls: "chain-rule-add chain-rule-reset" });
 		resetBtn.addEventListener("click", async () => {
 			this.plugin.settings.checkboxStatuses = [...DEFAULT_CHECKBOX_STATUSES];
 			await this.plugin.saveSettings();

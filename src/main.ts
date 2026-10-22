@@ -15,7 +15,7 @@ import { ChainSuggestModal } from "./chainSuggestModal";
 import type { ChainDefinition, ChainItem, FrontmatterRule } from "./types";
 import { LinearManager } from "./linear/manager";
 import { LINEAR_VIEW_TYPE, LinearView } from "./linear/linearView";
-import { applyCheckboxIcons, DEFAULT_CHECKBOX_STATUSES, HALF_CIRCLE_SVG } from "./checkboxIcons";
+import { applyCheckboxIcons, DEFAULT_CHECKBOX_STATUSES, HALF_CIRCLE_SVG, setSvg } from "./checkboxIcons";
 import { checkboxIconsEditorExtension } from "./checkboxIconsEditor";
 
 /** Simple modal that prompts for a filename and creates a blank .md file. */
@@ -254,7 +254,7 @@ export default class MarkdownTasksPlugin extends Plugin {
 					const bulletMatch = BULLET_RE.exec(lineText);
 					if (bulletMatch) {
 						const firstMark = marks[0] ?? " ";
-						const insertCh = bulletMatch[0]!.length;
+						const insertCh = bulletMatch[0].length;
 						const newLine = lineText.substring(0, insertCh) + `[${firstMark}] ` + lineText.substring(insertCh);
 						editor.replaceRange(newLine, { line: cursor.line, ch: 0 }, { line: cursor.line, ch: lineText.length });
 					}
@@ -1371,7 +1371,7 @@ export default class MarkdownTasksPlugin extends Plugin {
 				});
 				if (isOpen) openFileNode = node;
 				if (item.role === "previous" || item.role === "ready") setIcon(node, "check");
-				if (item.role === "inProgress") node.innerHTML = HALF_CIRCLE_SVG;
+				if (item.role === "inProgress") setSvg(node, HALF_CIRCLE_SVG);
 				setTooltip(node, item.file.basename, { delay: 0, placement: "top" });
 
 				node.draggable = true;

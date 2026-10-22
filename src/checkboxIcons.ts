@@ -37,6 +37,13 @@ const MARK_TO_SVG_CATEGORY: Record<string, keyof typeof STATUS_SVGS> = {
 // r=7 with stroke-width=1.5 makes the visual circle ~15px — matching the 16px CSS-border dots.
 export const HALF_CIRCLE_SVG = `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1"/><path d="M8 1 A7 7 0 0 1 8 15 Z" fill="currentColor"/></svg>`;
 
+/** Replaces an element's children with the given SVG markup, parsed rather than assigned via innerHTML. */
+export function setSvg(el: HTMLElement, svg: string): void {
+	const parsed = new DOMParser().parseFromString(svg, "image/svg+xml").documentElement;
+	el.empty();
+	el.appendChild(el.ownerDocument.importNode(parsed, true));
+}
+
 export const DEFAULT_CHECKBOX_STATUSES: CheckboxStatus[] = [
 	{ mark: " ", icon: "", label: "Backlog" },
 	{ mark: "t", icon: "", label: "Todo" },
@@ -73,7 +80,7 @@ export function buildIconEl(
 
 	const svg = getSvgForMark(mark);
 	if (svg) {
-		el.innerHTML = svg;
+		setSvg(el, svg);
 	} else {
 		el.setText(status?.icon || mark);
 	}
@@ -95,9 +102,7 @@ export function applyCheckboxIcons(
 		if (item.querySelector(".tt-checkbox-icon") || seen.has(item)) continue;
 		seen.add(item);
 
-		const checkbox = item.querySelector(
-			".task-list-item-checkbox"
-		) as HTMLInputElement | null;
+		const checkbox = item.querySelector<HTMLInputElement>(".task-list-item-checkbox");
 		if (!checkbox) continue;
 
 		const mark = item.getAttribute("data-task") ?? " ";
@@ -154,9 +159,9 @@ class CheckboxIcon extends Component {
 
 		const svg = getSvgForMark(this.mark);
 		if (svg) {
-			this.iconEl.innerHTML = svg;
+			setSvg(this.iconEl, svg);
 		} else {
-			this.iconEl.innerHTML = "";
+			this.iconEl.empty();
 			this.iconEl.setText(status?.icon || this.mark);
 		}
 	}

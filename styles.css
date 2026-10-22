@@ -1084,3 +1084,8 @@
 	height: var(--checkbox-size);
 	display: block;
 }
+
+/* Settings: "Reset to defaults" button beside "Add status" */
+.chain-rule-reset {
+	margin-left: 8px;
+}

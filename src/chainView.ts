@@ -1,7 +1,7 @@
 import { FuzzySuggestModal, ItemView, MarkdownView, Menu, TFile, WorkspaceLeaf, setIcon } from "obsidian";
 import MarkdownTasksPlugin from "./main";
 import type { ChainDefinition, ChainItem } from "./types";
-import { HALF_CIRCLE_SVG } from "./checkboxIcons";
+import { HALF_CIRCLE_SVG, setSvg } from "./checkboxIcons";
 
 export class QuickAddFileModal extends FuzzySuggestModal<TFile> {
 	private plugin: MarkdownTasksPlugin;
@@ -380,7 +380,7 @@ export class ChainView extends ItemView {
 					cls: `chain-view-list-dot chain-sb-node--${item.role}${isOpen ? " is-open" : ""}`,
 				});
 				if (item.role === "previous" || item.role === "ready") setIcon(dot, "check");
-				if (item.role === "inProgress") dot.innerHTML = HALF_CIRCLE_SVG;
+				if (item.role === "inProgress") setSvg(dot, HALF_CIRCLE_SVG);
 
 				// Name
 				row.createEl("span", {

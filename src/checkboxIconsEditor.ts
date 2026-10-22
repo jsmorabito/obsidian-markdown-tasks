@@ -12,11 +12,15 @@ import {
 } from "@codemirror/view";
 import { Annotation, EditorSelection, Prec } from "@codemirror/state";
 import { editorLivePreviewField } from "obsidian";
-// @ts-ignore
-import { syntaxTree, tokenClassNodeProp } from "@codemirror/language";
+import * as cmLanguage from "@codemirror/language";
+import type { NodeProp } from "@lezer/common";
 
 import MarkdownTasksPlugin from "./main";
 import { buildIconEl, CheckboxStatus, DEFAULT_CHECKBOX_STATUSES } from "./checkboxIcons";
+
+const { syntaxTree } = cmLanguage;
+// Obsidian's bundled @codemirror/language exports tokenClassNodeProp, but the public typings omit it.
+const tokenClassNodeProp = (cmLanguage as unknown as { tokenClassNodeProp?: NodeProp<string> }).tokenClassNodeProp;
 
 export const checkboxCycleAnnotation = Annotation.define<string>();
 
@@ -172,7 +176,7 @@ export function checkboxIconsEditorExtension(plugin: MarkdownTasksPlugin) {
 		private shouldRender(view: EditorView, from: number, to: number): boolean {
 			// Skip codeblocks and frontmatter
 			const syntaxNode = syntaxTree(view.state).resolveInner(from + 1);
-			const nodeProps = syntaxNode.type.prop(tokenClassNodeProp) as string | undefined;
+			const nodeProps = tokenClassNodeProp && syntaxNode.type.prop(tokenClassNodeProp);
 			if (nodeProps) {
 				const props = nodeProps.split(" ");
 				if (props.includes("hmd-codeblock") || props.includes("hmd-frontmatter")) {
