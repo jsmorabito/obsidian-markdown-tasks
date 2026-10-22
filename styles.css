@@ -1065,8 +1065,8 @@
 }
 
 /* Settings: narrow mark input */
-.checkbox-status-mark {
-	max-width: 3.5em !important;
+input[type="text"].checkbox-status-mark {
+	max-width: 3.5em;
 	text-align: center;
 }
 

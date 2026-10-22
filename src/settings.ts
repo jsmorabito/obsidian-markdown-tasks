@@ -296,19 +296,21 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 		chain: ChainDefinition,
 		idx: number
 	): void {
-		const section = containerEl.createEl("div", { cls: "chain-schema-section" });
+		const section = containerEl.createDiv({ cls: "chain-schema-section" });
 
-		const headerEl = section.createEl("div", { cls: "chain-schema-header" });
+		const headerEl = section.createDiv({ cls: "chain-schema-header" });
 		const h3 = new Setting(headerEl).setName("").setHeading();
 
 		const removeBtn = headerEl.createEl("button", {
 			text: "Remove",
 			cls: "chain-schema-remove-btn",
 		});
-		removeBtn.addEventListener("click", async () => {
-			this.plugin.settings.chains.splice(idx, 1);
-			await this.plugin.saveSettings();
-			this.refresh();
+		removeBtn.addEventListener("click", () => {
+			void (async () => {
+				this.plugin.settings.chains.splice(idx, 1);
+				await this.plugin.saveSettings();
+				this.refresh();
+			})();
 		});
 
 		// Refs to derived-key inputs so we can update them in-place when the name changes
@@ -476,17 +478,17 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 		const chain = this.plugin.settings.chains[chainIdx];
 		if (!chain) return;
 
-		const wrapper = containerEl.createEl("div", { cls: "chain-rule-list" });
+		const wrapper = containerEl.createDiv({ cls: "chain-rule-list" });
 		wrapper.createEl("p", { text: label, cls: "setting-item-name" });
 		wrapper.createEl("p", { text: desc, cls: "setting-item-description" });
 
-		const listEl = wrapper.createEl("div", { cls: "chain-rule-rows" });
+		const listEl = wrapper.createDiv({ cls: "chain-rule-rows" });
 
 		const refresh = () => {
 			listEl.empty();
 			const currentRules: FrontmatterRule[] = this.plugin.settings.chains[chainIdx]?.[field] ?? [];
 			currentRules.forEach((rule, ruleIdx) => {
-				const row = listEl.createEl("div", { cls: "chain-rule-row" });
+				const row = listEl.createDiv({ cls: "chain-rule-row" });
 
 				const keyInput = row.createEl("input", {
 					type: "text",
@@ -494,13 +496,15 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 					cls: "chain-rule-input",
 				});
 				keyInput.value = rule.key;
-				keyInput.addEventListener("change", async () => {
-					const c = this.plugin.settings.chains[chainIdx];
-					if (c) {
-						if (!c[field]) c[field] = [];
-						c[field][ruleIdx]!.key = keyInput.value.trim();
-						await this.plugin.saveSettings();
-					}
+				keyInput.addEventListener("change", () => {
+					void (async () => {
+						const c = this.plugin.settings.chains[chainIdx];
+						if (c) {
+							if (!c[field]) c[field] = [];
+							c[field][ruleIdx]!.key = keyInput.value.trim();
+							await this.plugin.saveSettings();
+						}
+					})();
 				});
 
 				const valInput = row.createEl("input", {
@@ -509,25 +513,29 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 					cls: "chain-rule-input",
 				});
 				valInput.value = rule.value ?? "";
-				valInput.addEventListener("change", async () => {
-					const c = this.plugin.settings.chains[chainIdx];
-					if (c) {
-						if (!c[field]) c[field] = [];
-						const trimmed = valInput.value.trim();
-						c[field][ruleIdx]!.value = trimmed || undefined;
-						await this.plugin.saveSettings();
-					}
+				valInput.addEventListener("change", () => {
+					void (async () => {
+						const c = this.plugin.settings.chains[chainIdx];
+						if (c) {
+							if (!c[field]) c[field] = [];
+							const trimmed = valInput.value.trim();
+							c[field][ruleIdx]!.value = trimmed || undefined;
+							await this.plugin.saveSettings();
+						}
+					})();
 				});
 
 				const removeBtn = row.createEl("button", { text: "×", cls: "chain-rule-remove" });
 				removeBtn.setAttribute("aria-label", "Remove rule");
-				removeBtn.addEventListener("click", async () => {
-					const c = this.plugin.settings.chains[chainIdx];
-					if (c) {
-						c[field] = (c[field] ?? []).filter((_, i) => i !== ruleIdx);
-						await this.plugin.saveSettings();
-						refresh();
-					}
+				removeBtn.addEventListener("click", () => {
+					void (async () => {
+						const c = this.plugin.settings.chains[chainIdx];
+						if (c) {
+							c[field] = (c[field] ?? []).filter((_, i) => i !== ruleIdx);
+							await this.plugin.saveSettings();
+							refresh();
+						}
+					})();
 				});
 			});
 		};
@@ -535,14 +543,16 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 		refresh();
 
 		const addBtn = wrapper.createEl("button", { text: "+ add rule", cls: "chain-rule-add" });
-		addBtn.addEventListener("click", async () => {
-			const c = this.plugin.settings.chains[chainIdx];
-			if (c) {
-				if (!c[field]) c[field] = [];
-				c[field].push({ key: "" });
-				await this.plugin.saveSettings();
-				refresh();
-			}
+		addBtn.addEventListener("click", () => {
+			void (async () => {
+				const c = this.plugin.settings.chains[chainIdx];
+				if (c) {
+					if (!c[field]) c[field] = [];
+					c[field].push({ key: "" });
+					await this.plugin.saveSettings();
+					refresh();
+				}
+			})();
 		});
 	}
 
@@ -575,11 +585,13 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 					cls: "chain-rule-input checkbox-status-mark",
 				});
 				markInput.value = status.mark;
-				markInput.addEventListener("change", async () => {
-					this.plugin.settings.checkboxStatuses[idx]!.mark = markInput.value;
-					await this.plugin.saveSettings();
-					// Refresh so the icon preview updates to match the new mark
-					refresh();
+				markInput.addEventListener("change", () => {
+					void (async () => {
+						this.plugin.settings.checkboxStatuses[idx]!.mark = markInput.value;
+						await this.plugin.saveSettings();
+						// Refresh so the icon preview updates to match the new mark
+						refresh();
+					})();
 				});
 
 				// Label input
@@ -589,18 +601,22 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 					cls: "chain-rule-input",
 				});
 				labelInput.value = status.label;
-				labelInput.addEventListener("change", async () => {
-					this.plugin.settings.checkboxStatuses[idx]!.label = labelInput.value;
-					await this.plugin.saveSettings();
+				labelInput.addEventListener("change", () => {
+					void (async () => {
+						this.plugin.settings.checkboxStatuses[idx]!.label = labelInput.value;
+						await this.plugin.saveSettings();
+					})();
 				});
 
 				// Remove button
 				const removeBtn = row.createEl("button", { text: "×", cls: "chain-rule-remove" });
 				removeBtn.setAttribute("aria-label", "Remove status");
-				removeBtn.addEventListener("click", async () => {
-					this.plugin.settings.checkboxStatuses.splice(idx, 1);
-					await this.plugin.saveSettings();
-					refresh();
+				removeBtn.addEventListener("click", () => {
+					void (async () => {
+						this.plugin.settings.checkboxStatuses.splice(idx, 1);
+						await this.plugin.saveSettings();
+						refresh();
+					})();
 				});
 			});
 		};
@@ -608,17 +624,21 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 		refresh();
 
 		const addBtn = wrapper.createEl("button", { text: "+ add status", cls: "chain-rule-add" });
-		addBtn.addEventListener("click", async () => {
-			this.plugin.settings.checkboxStatuses.push({ mark: "", icon: "", label: "" });
-			await this.plugin.saveSettings();
-			refresh();
+		addBtn.addEventListener("click", () => {
+			void (async () => {
+				this.plugin.settings.checkboxStatuses.push({ mark: "", icon: "", label: "" });
+				await this.plugin.saveSettings();
+				refresh();
+			})();
 		});
 
 		const resetBtn = wrapper.createEl("button", { text: "Reset to defaults", cls: "chain-rule-add chain-rule-reset" });
-		resetBtn.addEventListener("click", async () => {
-			this.plugin.settings.checkboxStatuses = [...DEFAULT_CHECKBOX_STATUSES];
-			await this.plugin.saveSettings();
-			refresh();
+		resetBtn.addEventListener("click", () => {
+			void (async () => {
+				this.plugin.settings.checkboxStatuses = [...DEFAULT_CHECKBOX_STATUSES];
+				await this.plugin.saveSettings();
+				refresh();
+			})();
 		});
 	}
 
@@ -711,11 +731,13 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 			const header = section.createDiv({ cls: "chain-schema-header" });
 			new Setting(header).setName("").setHeading();
 			const removeBtn = header.createEl("button", { text: "Remove", cls: "chain-schema-remove-btn" });
-			removeBtn.addEventListener("click", async () => {
-				this.plugin.settings.linearWorkspaces.splice(idx, 1);
-				await this.plugin.saveSettings();
-				this.plugin.linearManager?.refreshClients();
-				this.refresh();
+			removeBtn.addEventListener("click", () => {
+				void (async () => {
+					this.plugin.settings.linearWorkspaces.splice(idx, 1);
+					await this.plugin.saveSettings();
+					this.plugin.linearManager?.refreshClients();
+					this.refresh();
+				})();
 			});
 
 			// Workspace ID

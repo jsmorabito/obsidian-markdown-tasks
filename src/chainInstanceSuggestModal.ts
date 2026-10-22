@@ -63,12 +63,12 @@ export class ChainInstanceSuggestModal extends SuggestModal<ChainInstance> {
 
 	renderSuggestion(item: ChainInstance, el: HTMLElement): void {
 		if (item.isNew) {
-			el.createEl("div", {
+			el.createDiv({
 				text: `＋ Add to new group "${item.chainId}"`,
 				cls: "chain-instance-new",
 			});
 		} else {
-			el.createEl("div", {
+			el.createDiv({
 				text: item.chainId,
 				cls: "chain-instance-id",
 			});

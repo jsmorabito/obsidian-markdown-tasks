@@ -66,7 +66,7 @@ export function buildIconEl(
 	statuses: CheckboxStatus[],
 	extraCls?: string
 ): HTMLElement {
-	const el = createEl("span", {
+	const el = createSpan({
 		cls: ["tt-checkbox-icon", ...(extraCls ? [extraCls] : [])].join(" "),
 		attr: {
 			"data-task-state": mark,

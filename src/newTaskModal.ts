@@ -72,7 +72,7 @@ export class NewTaskModal extends Modal {
 				text.setPlaceholder(this.preselectedChain ? "My item" : "My task").onChange((value) => {
 					this.taskName = value.trim();
 				});
-				setTimeout(() => text.inputEl.focus(), 0);
+				window.setTimeout(() => text.inputEl.focus(), 0);
 			});
 
 		// Template dropdown — lists files from the configured templates folder
@@ -111,7 +111,7 @@ export class NewTaskModal extends Modal {
 
 	private renderChainEnrollment(containerEl: HTMLElement, chain: ChainDefinition): void {
 		const enrollment = this.enrollments.get(chain.idKey)!;
-		const section = containerEl.createEl("div", { cls: "new-task-chain-section" });
+		const section = containerEl.createDiv({ cls: "new-task-chain-section" });
 
 		const toggleSetting = new Setting(section)
 			.setName(chain.name)
@@ -123,7 +123,7 @@ export class NewTaskModal extends Modal {
 			);
 		toggleSetting.settingEl.addClass("new-task-chain-toggle");
 
-		const detailEl = section.createEl("div", { cls: "new-task-chain-detail" });
+		const detailEl = section.createDiv({ cls: "new-task-chain-detail" });
 		detailEl.style.display = enrollment.enabled ? "block" : "none";
 
 		// Auto-set chain ID and position from existing data

@@ -1,7 +1,7 @@
 {
   "id": "markdown-tasks",
   "name": "Markdown Tasks",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "minAppVersion": "1.13.0",
   "description": "Manage tasks as notes organized into ordered chains. Supports multiple chains, cross-chain membership, and a meta-chain for personal sequencing across projects.",
   "author": "John Morabito",

@@ -22,9 +22,8 @@ export class QuickAddFileModal extends FuzzySuggestModal<TFile> {
 		return file.basename;
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-misused-promises
-	async onChooseItem(file: TFile): Promise<void> {
-		await this.plugin.addFileToChain(file, this.chain);
+	onChooseItem(file: TFile): void {
+		void this.plugin.addFileToChain(file, this.chain);
 	}
 }
 
@@ -111,13 +110,13 @@ export class ChainView extends ItemView {
 	}
 
 	private renderChainSection(container: HTMLElement, chain: ChainDefinition): void {
-		const section = container.createEl("div", { cls: "chain-view-section" });
+		const section = container.createDiv({ cls: "chain-view-section" });
 
-		const header = section.createEl("div", { cls: "chain-view-section-header-row" });
-		header.createEl("div", { text: chain.name, cls: "chain-view-section-header" });
+		const header = section.createDiv({ cls: "chain-view-section-header-row" });
+		header.createDiv({ text: chain.name, cls: "chain-view-section-header" });
 
 		// View toggle buttons + quick-add (left of group)
-		const toggleGroup = header.createEl("div", { cls: "chain-view-toggle-group" });
+		const toggleGroup = header.createDiv({ cls: "chain-view-toggle-group" });
 		const addBtn = toggleGroup.createEl("button", { cls: "chain-view-toggle-btn chain-view-add-btn", attr: { "aria-label": "Add file to chain" } });
 		setIcon(addBtn, "plus");
 		addBtn.addEventListener("click", (e) => {
@@ -132,7 +131,7 @@ export class ChainView extends ItemView {
 		if (mode === "dots") dotsBtn.classList.add("is-active");
 		else listBtn.classList.add("is-active");
 
-		const trackWrapper = section.createEl("div");
+		const trackWrapper = section.createDiv();
 
 		const switchMode = (newMode: "dots" | "list") => {
 			this.viewModes.set(chain.idKey, newMode);
@@ -168,10 +167,10 @@ export class ChainView extends ItemView {
 			return;
 		}
 
-		const detailEl = section.createEl("div", { cls: "chain-view-detail" });
+		const detailEl = section.createDiv({ cls: "chain-view-detail" });
 
 		const renderDots = (parent: HTMLElement) => {
-			const trackEl = parent.createEl("div", { cls: "chain-view-track" });
+			const trackEl = parent.createDiv({ cls: "chain-view-track" });
 			const mainFile = this.mainEditorFile;
 
 			let dragSrcIdx: number | null = null;
@@ -182,16 +181,16 @@ export class ChainView extends ItemView {
 			};
 
 			items.forEach((item, idx) => {
-				const wrapper = trackEl.createEl("div", { cls: "chain-view-dot-wrapper" });
+				const wrapper = trackEl.createDiv({ cls: "chain-view-dot-wrapper" });
 				wrapper.draggable = true;
 				wrappers.push(wrapper);
 
 				const isOpen = mainFile?.path === item.file.path;
-				const dot = wrapper.createEl("div", {
+				const dot = wrapper.createDiv({
 					cls: `chain-view-dot chain-view-dot--${item.role}${isOpen ? " is-open" : ""}`,
 				});
 
-				const tip = document.body.createEl("div", {
+				const tip = document.body.createDiv({
 					text: item.file.basename,
 					cls: "chain-dot-tip",
 				});
@@ -248,30 +247,32 @@ export class ChainView extends ItemView {
 						wrapper.classList.remove("drop-before", "drop-after");
 					}
 				});
-				wrapper.addEventListener("drop", async (e) => {
-					e.preventDefault();
-					if (dragSrcIdx === null || dragSrcIdx === idx) return;
-					const rect = wrapper.getBoundingClientRect();
-					const insertBefore = e.clientX < rect.left + rect.width / 2;
-					const src = dragSrcIdx;
-					const draggedItem = items[src];
-					if (!draggedItem) return;
-					const newOrder = items.filter((_, i) => i !== src);
-					const targetIdx = newOrder.indexOf(item);
-					newOrder.splice(insertBefore ? targetIdx : targetIdx + 1, 0, draggedItem);
-					for (let i = 0; i < newOrder.length; i++) {
-						const entry = newOrder[i];
-						if (!entry) continue;
-						await this.app.fileManager.processFrontMatter(entry.file, (front: Record<string, unknown>) => {
-							front[chain.positionKey] = i + 1;
-						});
-					}
+				wrapper.addEventListener("drop", (e) => {
+					void (async () => {
+						e.preventDefault();
+						if (dragSrcIdx === null || dragSrcIdx === idx) return;
+						const rect = wrapper.getBoundingClientRect();
+						const insertBefore = e.clientX < rect.left + rect.width / 2;
+						const src = dragSrcIdx;
+						const draggedItem = items[src];
+						if (!draggedItem) return;
+						const newOrder = items.filter((_, i) => i !== src);
+						const targetIdx = newOrder.indexOf(item);
+						newOrder.splice(insertBefore ? targetIdx : targetIdx + 1, 0, draggedItem);
+						for (let i = 0; i < newOrder.length; i++) {
+							const entry = newOrder[i];
+							if (!entry) continue;
+							await this.app.fileManager.processFrontMatter(entry.file, (front: Record<string, unknown>) => {
+								front[chain.positionKey] = i + 1;
+							});
+						}
+					})();
 				});
 			});
 		};
 
 		const renderList = (parent: HTMLElement) => {
-			const listEl = parent.createEl("div", { cls: "chain-view-list" });
+			const listEl = parent.createDiv({ cls: "chain-view-list" });
 			const mainFile = this.mainEditorFile;
 
 			let dragSrcIdx: number | null = null;
@@ -370,20 +371,20 @@ export class ChainView extends ItemView {
 
 
 			items.forEach((item, idx) => {
-				const row = listEl.createEl("div", { cls: `chain-view-list-row chain-view-list-row--${item.role}` });
+				const row = listEl.createDiv({ cls: `chain-view-list-row chain-view-list-row--${item.role}` });
 				row.draggable = true;
 				rows.push(row);
 
 				// Dot
 				const isOpen = mainFile?.path === item.file.path;
-				const dot = row.createEl("span", {
+				const dot = row.createSpan({
 					cls: `chain-view-list-dot chain-sb-node--${item.role}${isOpen ? " is-open" : ""}`,
 				});
 				if (item.role === "previous" || item.role === "ready") setIcon(dot, "check");
 				if (item.role === "inProgress") setSvg(dot, HALF_CIRCLE_SVG);
 
 				// Name
-				row.createEl("span", {
+				row.createSpan({
 					text: item.file.basename,
 					cls: "chain-view-list-name" + (item.role === "current" ? " chain-view-list-name--current" : ""),
 				});
@@ -392,7 +393,7 @@ export class ChainView extends ItemView {
 				const open = async () => {
 					await this.app.workspace.getLeaf(false).openFile(item.file);
 				};
-				row.addEventListener("click", open);
+				row.addEventListener("click", () => void open());
 
 				// Drag events
 				row.addEventListener("dragstart", (e) => {
@@ -421,17 +422,19 @@ export class ChainView extends ItemView {
 						row.classList.remove("drop-before", "drop-after");
 					}
 				});
-				row.addEventListener("drop", async (e) => {
-					e.preventDefault();
-					if (dragSrcIdx === null || dragSrcIdx === idx) return;
-					const src = dragSrcIdx;
-					const draggedItem = items[src]!;
-					const rect = row.getBoundingClientRect();
-					const insertBefore = e.clientY < rect.top + rect.height / 2;
-					const newOrder = items.filter((_, i) => i !== src);
-					const targetIdx = newOrder.indexOf(item);
-					newOrder.splice(insertBefore ? targetIdx : targetIdx + 1, 0, draggedItem);
-					await reassignStatuses(newOrder, draggedItem.role === "current");
+				row.addEventListener("drop", (e) => {
+					void (async () => {
+						e.preventDefault();
+						if (dragSrcIdx === null || dragSrcIdx === idx) return;
+						const src = dragSrcIdx;
+						const draggedItem = items[src]!;
+						const rect = row.getBoundingClientRect();
+						const insertBefore = e.clientY < rect.top + rect.height / 2;
+						const newOrder = items.filter((_, i) => i !== src);
+						const targetIdx = newOrder.indexOf(item);
+						newOrder.splice(insertBefore ? targetIdx : targetIdx + 1, 0, draggedItem);
+						await reassignStatuses(newOrder, draggedItem.role === "current");
+					})();
 				});
 
 				// Right-click context menu — show every status the item isn't currently in
@@ -518,22 +521,24 @@ export class ChainView extends ItemView {
 	): void {
 		detailEl.empty();
 
-		const nameEl = detailEl.createEl("span", {
+		const nameEl = detailEl.createSpan({
 			text: item.file.basename,
 			cls: "chain-view-detail__name chain-view-item--clickable",
 		});
-		nameEl.addEventListener("click", async () => {
-			await this.app.workspace.getLeaf(false).openFile(item.file);
+		nameEl.addEventListener("click", () => {
+			void (async () => {
+				await this.app.workspace.getLeaf(false).openFile(item.file);
+			})();
 		});
 
 		const roleLabel = item.role === "previous" ? "Done" : item.role === "current" ? "Current" : item.role === "ready" ? "Ready" : item.role === "inProgress" ? "In Progress" : "Todo";
-		detailEl.createEl("span", {
+		detailEl.createSpan({
 			text: roleLabel,
 			cls: "chain-view-item__role",
 		});
 
 		// Reorder buttons
-		const reorderEl = detailEl.createEl("span", { cls: "chain-view-item__reorder" });
+		const reorderEl = detailEl.createSpan({ cls: "chain-view-item__reorder" });
 
 		const upBtn = reorderEl.createEl("button", {
 			cls: "chain-view-reorder-btn",
@@ -542,8 +547,10 @@ export class ChainView extends ItemView {
 		});
 		if (idx === 0) upBtn.disabled = true;
 		const prevItem = items[idx - 1];
-		upBtn.addEventListener("click", async () => {
-			if (idx > 0 && prevItem) await this.swapOrder(item, prevItem, chain);
+		upBtn.addEventListener("click", () => {
+			void (async () => {
+				if (idx > 0 && prevItem) await this.swapOrder(item, prevItem, chain);
+			})();
 		});
 
 		const downBtn = reorderEl.createEl("button", {
@@ -553,8 +560,10 @@ export class ChainView extends ItemView {
 		});
 		if (idx === items.length - 1) downBtn.disabled = true;
 		const nextItem = items[idx + 1];
-		downBtn.addEventListener("click", async () => {
-			if (idx < items.length - 1 && nextItem) await this.swapOrder(item, nextItem, chain);
+		downBtn.addEventListener("click", () => {
+			void (async () => {
+				if (idx < items.length - 1 && nextItem) await this.swapOrder(item, nextItem, chain);
+			})();
 		});
 
 		// Set as current
@@ -564,8 +573,10 @@ export class ChainView extends ItemView {
 				text: "Set current",
 				attr: { "aria-label": `Set ${item.file.basename} as current task` },
 			});
-			setBtn.addEventListener("click", async () => {
-				await this.plugin.setCurrentTask(item.file, chain);
+			setBtn.addEventListener("click", () => {
+				void (async () => {
+					await this.plugin.setCurrentTask(item.file, chain);
+				})();
 			});
 		}
 
@@ -574,9 +585,9 @@ export class ChainView extends ItemView {
 			(c) => c.idKey !== chain.idKey
 		);
 		if (otherChains.length > 0) {
-			const tagsEl = detailEl.createEl("span", { cls: "chain-view-item__tags" });
+			const tagsEl = detailEl.createSpan({ cls: "chain-view-item__tags" });
 			otherChains.forEach((c) => {
-				tagsEl.createEl("span", { text: c.name, cls: "chain-view-item__tag" });
+				tagsEl.createSpan({ text: c.name, cls: "chain-view-item__tag" });
 			});
 		}
 	}

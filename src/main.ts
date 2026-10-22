@@ -43,7 +43,7 @@ class NewBlankFileModal extends Modal {
 				text.inputEl.addEventListener("keydown", (e) => {
 					if (e.key === "Enter") { e.preventDefault(); void this.submit(); }
 				});
-				setTimeout(() => text.inputEl.focus(), 0);
+				window.setTimeout(() => text.inputEl.focus(), 0);
 			});
 
 		new Setting(contentEl)
@@ -565,9 +565,11 @@ export default class MarkdownTasksPlugin extends Plugin {
 		}
 		const mins = this.settings.linearSyncIntervalMinutes;
 		if (mins > 0 && this.linearManager) {
-			this.linearSyncIntervalId = window.setInterval(async () => {
-				const { updated } = await this.linearManager!.pullAll();
-				if (updated > 0) new Notice(`Linear: pulled ${updated} update${updated === 1 ? "" : "s"}.`);
+			this.linearSyncIntervalId = window.setInterval(() => {
+				void (async () => {
+					const { updated } = await this.linearManager!.pullAll();
+					if (updated > 0) new Notice(`Linear: pulled ${updated} update${updated === 1 ? "" : "s"}.`);
+				})();
 			}, mins * 60 * 1000);
 		}
 	}
@@ -1144,10 +1146,12 @@ export default class MarkdownTasksPlugin extends Plugin {
 			void this.openChainView();
 			return;
 		}
-		new ChainSuggestModal(this.app, active, async (chain) => {
-			this.settings.statusBarChainIdKey = chain.idKey;
-			await this.saveSettings();
-			this.renderChainBreadcrumb();
+		new ChainSuggestModal(this.app, active, (chain) => {
+			void (async () => {
+				this.settings.statusBarChainIdKey = chain.idKey;
+				await this.saveSettings();
+				this.renderChainBreadcrumb();
+			})();
 		}).open();
 	}
 
@@ -1194,25 +1198,27 @@ export default class MarkdownTasksPlugin extends Plugin {
 			setTooltip(el, "Start a chain", { delay: 0, placement: "top" });
 			const addBtn = el.createSpan({ cls: "chain-sb-add-btn chain-sb-add-btn--start" });
 			setIcon(addBtn, "plus");
-			addBtn.addEventListener("click", async (e) => {
-				e.stopPropagation();
-				const file = this.app.workspace.getActiveFile();
-				new CreateChainModal(this.app, async (name) => {
-					const schema: ChainDefinition = {
-						name,
-						...derivedChainKeys(slugifyChainName(name) || "chain"),
-						currentStatusValue: "current",
-						completedStatusValue: "done",
-						readyStatusValue: "ready",
-					};
-					this.settings.chains.push(schema);
-					await this.saveSettings();
-					if (file) {
-						await this.addFileToChain(file, schema);
-					} else {
-						new Notice("Chain created. Open a file and click + to add it.");
-					}
-				}).open();
+			addBtn.addEventListener("click", (e) => {
+				void (async () => {
+					e.stopPropagation();
+					const file = this.app.workspace.getActiveFile();
+					new CreateChainModal(this.app, async (name) => {
+						const schema: ChainDefinition = {
+							name,
+							...derivedChainKeys(slugifyChainName(name) || "chain"),
+							currentStatusValue: "current",
+							completedStatusValue: "done",
+							readyStatusValue: "ready",
+						};
+						this.settings.chains.push(schema);
+						await this.saveSettings();
+						if (file) {
+							await this.addFileToChain(file, schema);
+						} else {
+							new Notice("Chain created. Open a file and click + to add it.");
+						}
+					}).open();
+				})();
 			});
 		} else {
 			// State B — schemas exist but no file is current yet
@@ -1331,15 +1337,19 @@ export default class MarkdownTasksPlugin extends Plugin {
 					dragSrcIdx = -1;
 					node.removeClass("is-dragging");
 				});
-				node.addEventListener("click", async (e) => {
-					e.stopPropagation();
-					await this.openFileRespectingPin(item.file);
-				});
-				node.addEventListener("keydown", async (e) => {
-					if (e.key === "Enter" || e.key === " ") {
-						e.preventDefault();
+				node.addEventListener("click", (e) => {
+					void (async () => {
+						e.stopPropagation();
 						await this.openFileRespectingPin(item.file);
-					}
+					})();
+				});
+				node.addEventListener("keydown", (e) => {
+					void (async () => {
+						if (e.key === "Enter" || e.key === " ") {
+							e.preventDefault();
+							await this.openFileRespectingPin(item.file);
+						}
+					})();
 				});
 				node.addEventListener("contextmenu", (e) => {
 					e.stopPropagation();
@@ -1401,31 +1411,37 @@ export default class MarkdownTasksPlugin extends Plugin {
 					node.removeClass("chain-sb-drop-before");
 					node.removeClass("chain-sb-drop-after");
 				});
-				node.addEventListener("drop", async (e) => {
-					e.preventDefault();
-					node.removeClass("chain-sb-drop-before");
-					node.removeClass("chain-sb-drop-after");
-					if (dragSrcIdx < 0 || dragSrcIdx === idx) return;
-					const rect = node.getBoundingClientRect();
-					const insertAfter = e.clientX >= rect.left + rect.width / 2;
-					// Compute clean insertion index
-					let target = idx;
-					if (insertAfter && dragSrcIdx < idx) target = idx;
-					else if (insertAfter && dragSrcIdx > idx) target = idx + 1;
-					else if (!insertAfter && dragSrcIdx < idx) target = idx - 1;
-					else target = idx;
-					await reorder(dragSrcIdx, target);
+				node.addEventListener("drop", (e) => {
+					void (async () => {
+						e.preventDefault();
+						node.removeClass("chain-sb-drop-before");
+						node.removeClass("chain-sb-drop-after");
+						if (dragSrcIdx < 0 || dragSrcIdx === idx) return;
+						const rect = node.getBoundingClientRect();
+						const insertAfter = e.clientX >= rect.left + rect.width / 2;
+						// Compute clean insertion index
+						let target = idx;
+						if (insertAfter && dragSrcIdx < idx) target = idx;
+						else if (insertAfter && dragSrcIdx > idx) target = idx + 1;
+						else if (!insertAfter && dragSrcIdx < idx) target = idx - 1;
+						else target = idx;
+						await reorder(dragSrcIdx, target);
+					})();
 				});
 
-				node.addEventListener("click", async (e) => {
-					e.stopPropagation();
-					await this.openFileRespectingPin(item.file);
-				});
-				node.addEventListener("keydown", async (e) => {
-					if (e.key === "Enter" || e.key === " ") {
-						e.preventDefault();
+				node.addEventListener("click", (e) => {
+					void (async () => {
+						e.stopPropagation();
 						await this.openFileRespectingPin(item.file);
-					}
+					})();
+				});
+				node.addEventListener("keydown", (e) => {
+					void (async () => {
+						if (e.key === "Enter" || e.key === " ") {
+							e.preventDefault();
+							await this.openFileRespectingPin(item.file);
+						}
+					})();
 				});
 				node.addEventListener("contextmenu", (e) => {
 					e.stopPropagation();
@@ -1482,7 +1498,7 @@ export default class MarkdownTasksPlugin extends Plugin {
 
 		// After layout: size container based on current-task window, scroll to show open file.
 		// Use offsetLeft relative to scrollEl to get stable scroll-content positions.
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			const maxVisible = this.settings.statusBarDisplayMode === "filenames"
 				? (this.settings.statusBarMaxItems ?? 5)
 				: (this.settings.statusBarDotsCount ?? 7);
@@ -1627,12 +1643,14 @@ class CreateChainModal extends Modal {
 				text.setPlaceholder("E.g. Project alpha");
 				text.onChange((v) => { nameValue = v; });
 				// Focus after the modal DOM is ready
-				setTimeout(() => text.inputEl.focus(), 0);
-				text.inputEl.addEventListener("keydown", async (e: KeyboardEvent) => {
-					if (e.key === "Enter" && nameValue.trim()) {
-						this.close();
-						await this.onSubmit(nameValue.trim());
-					}
+				window.setTimeout(() => text.inputEl.focus(), 0);
+				text.inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
+					void (async () => {
+						if (e.key === "Enter" && nameValue.trim()) {
+							this.close();
+							await this.onSubmit(nameValue.trim());
+						}
+					})();
 				});
 			});
 
@@ -1679,12 +1697,14 @@ class LinearPushStateModal extends Modal {
 			.addText((text) => {
 				text.setPlaceholder("In progress");
 				text.onChange((v) => { value = v; });
-				setTimeout(() => text.inputEl.focus(), 0);
-				text.inputEl.addEventListener("keydown", async (e: KeyboardEvent) => {
-					if (e.key === "Enter" && value.trim()) {
-						this.close();
-						await this.onSubmit(value.trim());
-					}
+				window.setTimeout(() => text.inputEl.focus(), 0);
+				text.inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
+					void (async () => {
+						if (e.key === "Enter" && value.trim()) {
+							this.close();
+							await this.onSubmit(value.trim());
+						}
+					})();
 				});
 			});
 
@@ -1730,7 +1750,7 @@ class LinearOAuthModal extends Modal {
 				text.inputEl.type = "password";
 				text.setPlaceholder("Lin_API_… or OAUTH token");
 				text.onChange((v) => { token = v; });
-				setTimeout(() => text.inputEl.focus(), 0);
+				window.setTimeout(() => text.inputEl.focus(), 0);
 			});
 
 		new Setting(contentEl).addButton((btn) =>

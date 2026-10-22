@@ -96,12 +96,14 @@ export class LinearView extends ItemView {
 				const opt = select.createEl("option", { value: ws.id, text: ws.name });
 				if (ws.id === this.state.workspaceId) opt.selected = true;
 			}
-			select.addEventListener("change", async () => {
-				this.state.workspaceId = select.value;
-				this.state.teamId = null;
-				this.issues = [];
-				this.render();
-				await this.loadTeams();
+			select.addEventListener("change", () => {
+				void (async () => {
+					this.state.workspaceId = select.value;
+					this.state.teamId = null;
+					this.issues = [];
+					this.render();
+					await this.loadTeams();
+				})();
 			});
 		} else if (workspaces.length === 1 && workspaces[0]) {
 			left.createSpan({ cls: "linear-view__ws-name", text: workspaces[0].name });
@@ -113,15 +115,17 @@ export class LinearView extends ItemView {
 		const syncBtn = buttons.createDiv({ cls: "clickable-icon nav-action-button linear-view__sync-btn" });
 		setIcon(syncBtn, "refresh-cw");
 		setTooltip(syncBtn, "Sync all linked notes", { delay: 0 });
-		syncBtn.addEventListener("click", async () => {
-			syncBtn.addClass("is-loading");
-			const { updated, errors } = await this.manager.pullAll();
-			syncBtn.removeClass("is-loading");
-			new Notice(
-				errors > 0
-					? `Linear sync: ${updated} updated, ${errors} errors.`
-					: `Linear sync: ${updated} note${updated === 1 ? "" : "s"} updated.`
-			);
+		syncBtn.addEventListener("click", () => {
+			void (async () => {
+				syncBtn.addClass("is-loading");
+				const { updated, errors } = await this.manager.pullAll();
+				syncBtn.removeClass("is-loading");
+				new Notice(
+					errors > 0
+						? `Linear sync: ${updated} updated, ${errors} errors.`
+						: `Linear sync: ${updated} note${updated === 1 ? "" : "s"} updated.`
+				);
+			})();
 		});
 
 		const settingsBtn = buttons.createDiv({ cls: "clickable-icon nav-action-button" });
@@ -159,9 +163,11 @@ export class LinearView extends ItemView {
 			const opt = teamSelect.createEl("option", { value: team.id, text: team.name });
 			if (team.id === this.state.teamId) opt.selected = true;
 		}
-		teamSelect.addEventListener("change", async () => {
-			this.state.teamId = teamSelect.value || null;
-			await this.loadIssues();
+		teamSelect.addEventListener("change", () => {
+			void (async () => {
+				this.state.teamId = teamSelect.value || null;
+				await this.loadIssues();
+			})();
 		});
 
 		const toggles = row2.createDiv({ cls: "linear-view__toggles" });
@@ -178,13 +184,17 @@ export class LinearView extends ItemView {
 			});
 		};
 
-		makeToggle("Mine", this.state.assignedToMe, async (v) => {
-			this.state.assignedToMe = v;
-			await this.loadIssues();
+		makeToggle("Mine", this.state.assignedToMe, (v) => {
+			void (async () => {
+				this.state.assignedToMe = v;
+				await this.loadIssues();
+			})();
 		});
-		makeToggle("Completed", this.state.includeCompleted, async (v) => {
-			this.state.includeCompleted = v;
-			await this.loadIssues();
+		makeToggle("Completed", this.state.includeCompleted, (v) => {
+			void (async () => {
+				this.state.includeCompleted = v;
+				await this.loadIssues();
+			})();
 		});
 	}
 
@@ -248,25 +258,29 @@ export class LinearView extends ItemView {
 		if (alreadyImported) {
 			setIcon(importBtn, "file-text");
 			setTooltip(importBtn, "Open note", { delay: 0 });
-			importBtn.addEventListener("click", async (e) => {
-				e.stopPropagation();
-				const file = this.manager.findNoteForIssue(issue.id);
-				if (file) {
-					const leaf = this.app.workspace.getMostRecentLeaf(this.app.workspace.rootSplit);
-					if (leaf) await leaf.openFile(file);
-				}
+			importBtn.addEventListener("click", (e) => {
+				void (async () => {
+					e.stopPropagation();
+					const file = this.manager.findNoteForIssue(issue.id);
+					if (file) {
+						const leaf = this.app.workspace.getMostRecentLeaf(this.app.workspace.rootSplit);
+						if (leaf) await leaf.openFile(file);
+					}
+				})();
 			});
 		} else {
 			setIcon(importBtn, "download");
 			setTooltip(importBtn, "Import as note", { delay: 0 });
-			importBtn.addEventListener("click", async (e) => {
-				e.stopPropagation();
-				const file = await this.manager.importIssue(issue);
-				if (file) {
-					row.addClass("is-imported");
-					setIcon(importBtn, "file-text");
-					setTooltip(importBtn, "Open note", { delay: 0 });
-				}
+			importBtn.addEventListener("click", (e) => {
+				void (async () => {
+					e.stopPropagation();
+					const file = await this.manager.importIssue(issue);
+					if (file) {
+						row.addClass("is-imported");
+						setIcon(importBtn, "file-text");
+						setTooltip(importBtn, "Open note", { delay: 0 });
+					}
+				})();
 			});
 		}
 
@@ -318,8 +332,10 @@ export class LinearView extends ItemView {
 					.setTitle("Add to chain…")
 					.setIcon("link")
 					.onClick(() => {
-						new ChainSuggestModal(this.app, chains, async (chain) => {
-							await this.importAndAddToChain(issue, chain.name, row, importBtn);
+						new ChainSuggestModal(this.app, chains, (chain) => {
+							void (async () => {
+								await this.importAndAddToChain(issue, chain.name, row, importBtn);
+							})();
 						}).open();
 					})
 			);
