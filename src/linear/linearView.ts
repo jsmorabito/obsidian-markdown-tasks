@@ -8,7 +8,7 @@
 import { ItemView, Menu, Notice, WorkspaceLeaf, setIcon, setTooltip } from "obsidian";
 import type { LinearManager } from "./manager";
 import type { LinearIssueStub, LinearTeam } from "../types";
-import type TaskToolsPlugin from "../main";
+import type MarkdownTasksPlugin from "../main";
 import { ChainSuggestModal } from "../chainSuggestModal";
 
 export const LINEAR_VIEW_TYPE = "task-tools-linear-view";
@@ -22,7 +22,7 @@ interface ViewState {
 }
 
 export class LinearView extends ItemView {
-	private plugin: TaskToolsPlugin;
+	private plugin: MarkdownTasksPlugin;
 	private manager: LinearManager;
 
 	private state: ViewState = {
@@ -37,7 +37,7 @@ export class LinearView extends ItemView {
 	private issues: LinearIssueStub[] = [];
 	private loading = false;
 
-	constructor(leaf: WorkspaceLeaf, plugin: TaskToolsPlugin, manager: LinearManager) {
+	constructor(leaf: WorkspaceLeaf, plugin: MarkdownTasksPlugin, manager: LinearManager) {
 		super(leaf);
 		this.plugin = plugin;
 		this.manager = manager;
@@ -129,7 +129,7 @@ export class LinearView extends ItemView {
 		setTooltip(settingsBtn, "Linear settings", { delay: 0 });
 		settingsBtn.addEventListener("click", () => {
 			(this.app as { setting?: { open?: () => void; openTabById?: (id: string) => void } }).setting?.open?.();
-			(this.app as { setting?: { open?: () => void; openTabById?: (id: string) => void } }).setting?.openTabById?.("obsidian-task-tools");
+			(this.app as { setting?: { open?: () => void; openTabById?: (id: string) => void } }).setting?.openTabById?.("markdown-tasks");
 		});
 	}
 

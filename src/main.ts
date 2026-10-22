@@ -4,8 +4,8 @@ import { App, MarkdownView, Menu, Modal, Notice, Plugin, Setting, TFile, setIcon
 const COMPLETED_DATE_KEY = "completedDate";
 import {
 	DEFAULT_SETTINGS,
-	TaskToolsSettings,
-	TaskToolsSettingTab,
+	MarkdownTasksSettings,
+	MarkdownTasksSettingTab,
 	derivedChainKeys,
 	slugifyChainName,
 } from "./settings";
@@ -18,11 +18,11 @@ import { LINEAR_VIEW_TYPE, LinearView } from "./linear/linearView";
 
 /** Simple modal that prompts for a filename and creates a blank .md file. */
 class NewBlankFileModal extends Modal {
-	private plugin: TaskToolsPlugin;
+	private plugin: MarkdownTasksPlugin;
 	private chain: ChainDefinition;
 	private name = "";
 
-	constructor(plugin: TaskToolsPlugin, chain: ChainDefinition) {
+	constructor(plugin: MarkdownTasksPlugin, chain: ChainDefinition) {
 		super(plugin.app);
 		this.plugin = plugin;
 		this.chain = chain;
@@ -67,8 +67,8 @@ class NewBlankFileModal extends Modal {
 	}
 }
 
-export default class TaskToolsPlugin extends Plugin {
-	settings: TaskToolsSettings;
+export default class MarkdownTasksPlugin extends Plugin {
+	settings: MarkdownTasksSettings;
 	linearManager: LinearManager | null = null;
 	private chainStatusBarItem: HTMLElement;
 	private statusBarObserver: ResizeObserver | null = null;
@@ -194,7 +194,7 @@ export default class TaskToolsPlugin extends Plugin {
 			})
 		);
 
-		this.addSettingTab(new TaskToolsSettingTab(this.app, this));
+		this.addSettingTab(new MarkdownTasksSettingTab(this.app, this));
 
 		// ── Linear sync on open ──────────────────────────────────────────────
 		this.app.workspace.onLayoutReady(() => {
@@ -518,7 +518,7 @@ export default class TaskToolsPlugin extends Plugin {
 			new Notice("Linear workspace connected.");
 			// Refresh settings UI
 			(this.app as { setting?: { open?: () => void } }).setting?.open?.();
-			(this.app as { setting?: { openTabById?: (id: string) => void } }).setting?.openTabById?.("obsidian-task-tools");
+			(this.app as { setting?: { openTabById?: (id: string) => void } }).setting?.openTabById?.("markdown-tasks");
 		}).open();
 	}
 
@@ -526,7 +526,7 @@ export default class TaskToolsPlugin extends Plugin {
 		this.settings = Object.assign(
 			{},
 			DEFAULT_SETTINGS,
-			(await this.loadData()) as Partial<TaskToolsSettings>
+			(await this.loadData()) as Partial<MarkdownTasksSettings>
 		);
 	}
 

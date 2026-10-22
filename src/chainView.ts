@@ -1,12 +1,12 @@
 import { FuzzySuggestModal, ItemView, MarkdownView, Menu, TFile, WorkspaceLeaf, setIcon } from "obsidian";
-import TaskToolsPlugin from "./main";
+import MarkdownTasksPlugin from "./main";
 import type { ChainDefinition, ChainItem } from "./types";
 
 export class QuickAddFileModal extends FuzzySuggestModal<TFile> {
-	private plugin: TaskToolsPlugin;
+	private plugin: MarkdownTasksPlugin;
 	private chain: ChainDefinition;
 
-	constructor(plugin: TaskToolsPlugin, chain: ChainDefinition) {
+	constructor(plugin: MarkdownTasksPlugin, chain: ChainDefinition) {
 		super(plugin.app);
 		this.plugin = plugin;
 		this.chain = chain;
@@ -30,12 +30,12 @@ export class QuickAddFileModal extends FuzzySuggestModal<TFile> {
 export const CHAIN_VIEW_TYPE = "task-tools-chain-view";
 
 export class ChainView extends ItemView {
-	plugin: TaskToolsPlugin;
+	plugin: MarkdownTasksPlugin;
 	private viewModes: Map<string, "dots" | "list"> = new Map();
 	private renderDebounceTimer: number | null = null;
 	private mainEditorFile: TFile | null = null;
 
-	constructor(leaf: WorkspaceLeaf, plugin: TaskToolsPlugin) {
+	constructor(leaf: WorkspaceLeaf, plugin: MarkdownTasksPlugin) {
 		super(leaf);
 		this.plugin = plugin;
 	}

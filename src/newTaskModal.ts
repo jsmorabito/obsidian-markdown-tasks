@@ -8,7 +8,7 @@ import {
 	parseYaml,
 	stringifyYaml,
 } from "obsidian";
-import type TaskToolsPlugin from "./main";
+import type MarkdownTasksPlugin from "./main";
 import type { ChainDefinition } from "./types";
 
 interface ChainEnrollment {
@@ -19,14 +19,14 @@ interface ChainEnrollment {
 }
 
 export class NewTaskModal extends Modal {
-	plugin: TaskToolsPlugin;
+	plugin: MarkdownTasksPlugin;
 	private taskName: string = "";
 	private enrollments: Map<string, ChainEnrollment> = new Map();
 	private preselectedChain: ChainDefinition | null;
 	/** User-chosen template path; null means use the auto-resolved default. */
 	private templatePathOverride: string | null = null;
 
-	constructor(app: App, plugin: TaskToolsPlugin, preselectedChain?: ChainDefinition) {
+	constructor(app: App, plugin: MarkdownTasksPlugin, preselectedChain?: ChainDefinition) {
 		super(app);
 		this.plugin = plugin;
 		this.preselectedChain = preselectedChain ?? null;

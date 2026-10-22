@@ -1,11 +1,11 @@
 import { AbstractInputSuggest, App, PluginSettingTab, Setting, TFile } from "obsidian";
 import type { ChainDefinition, FrontmatterRule, LinearWorkspaceConfig } from "./types";
-import TaskToolsPlugin from "./main";
+import MarkdownTasksPlugin from "./main";
 
 export type StatusBarDisplayMode = "filenames" | "dots";
 export type ChainBarPosition = "left" | "center" | "right";
 
-export interface TaskToolsSettings {
+export interface MarkdownTasksSettings {
 	taskFrontmatterKey: string;
 	taskFrontmatterValue: string;
 	taskFolder: string;
@@ -46,7 +46,7 @@ export const DEFAULT_CHAIN: ChainDefinition = {
 	readyStatusValue: "ready",
 };
 
-export const DEFAULT_SETTINGS: TaskToolsSettings = {
+export const DEFAULT_SETTINGS: MarkdownTasksSettings = {
 	taskFrontmatterKey: "type",
 	taskFrontmatterValue: "task",
 	taskFolder: "",
@@ -83,10 +83,10 @@ class FileSuggest extends AbstractInputSuggest<TFile> {
 	}
 }
 
-export class TaskToolsSettingTab extends PluginSettingTab {
-	plugin: TaskToolsPlugin;
+export class MarkdownTasksSettingTab extends PluginSettingTab {
+	plugin: MarkdownTasksPlugin;
 
-	constructor(app: App, plugin: TaskToolsPlugin) {
+	constructor(app: App, plugin: MarkdownTasksPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}

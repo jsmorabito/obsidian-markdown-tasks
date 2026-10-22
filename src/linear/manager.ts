@@ -12,7 +12,7 @@
 import { App, Notice, TFile, normalizePath } from "obsidian";
 import { LinearClient } from "./client";
 import type { LinearIssueStub, LinearWorkspaceConfig } from "../types";
-import type { TaskToolsSettings } from "../settings";
+import type { MarkdownTasksSettings } from "../settings";
 
 /** Frontmatter keys written to imported issue notes. */
 export const LINEAR_FM = {
@@ -30,13 +30,13 @@ export const LINEAR_FM = {
 
 export class LinearManager {
 	private app: App;
-	private getSettings: () => TaskToolsSettings;
+	private getSettings: () => MarkdownTasksSettings;
 	private saveSettings: () => Promise<void>;
 	private clients: Map<string, LinearClient> = new Map();
 
 	constructor(
 		app: App,
-		getSettings: () => TaskToolsSettings,
+		getSettings: () => MarkdownTasksSettings,
 		saveSettings: () => Promise<void>
 	) {
 		this.app = app;
