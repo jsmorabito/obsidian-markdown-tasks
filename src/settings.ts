@@ -59,7 +59,7 @@ export const DEFAULT_SETTINGS: MarkdownTasksSettings = {
 	statusBarDisplayMode: "filenames",
 	statusBarDotsCount: 7,
 	statusBarMaxItems: 5,
-	chainBarVisible: true,
+	chainBarVisible: false,
 	chainBarPosition: "center",
 	chains: [DEFAULT_CHAIN],
 	linearWorkspaces: [],
@@ -99,6 +99,11 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 
 	display(): void {
 		this.refresh();
+	}
+
+	/** Re-render the tab if it is currently open, e.g. after a setting changes from a command. */
+	refreshIfOpen(): void {
+		if (this.containerEl.isShown()) this.refresh();
 	}
 
 	private refresh(): void {
@@ -170,69 +175,18 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 		// ── Status bar ──────────────────────────────────────────────────────
 		new Setting(containerEl).setName("Status bar").setHeading();
 
-		let dotsCountSetting: Setting;
-		let maxItemsSetting: Setting;
-
 		new Setting(containerEl)
-			.setName("Display mode")
-			.setDesc("How items are shown in the status bar breadcrumb.")
-			.addDropdown((drop) => {
-				drop.addOption("filenames", "File names");
-				drop.addOption("dots", "Dots");
-				drop.setValue(this.plugin.settings.statusBarDisplayMode);
-				drop.onChange(async (value) => {
-					this.plugin.settings.statusBarDisplayMode = value as "filenames" | "dots";
-					await this.plugin.saveSettings();
-					dotsCountSetting.settingEl.toggle(value === "dots");
-					maxItemsSetting.settingEl.toggle(value === "filenames");
-				});
-			});
-
-		dotsCountSetting = new Setting(containerEl)
-			.setName("Visible dots")
-			.setDesc("Maximum number of dots shown at once. The window stays centered on the current task.")
-			.addSlider((slider) =>
-				slider
-					.setLimits(3, 15, 2)
-					.setValue(this.plugin.settings.statusBarDotsCount)
-					.setDynamicTooltip()
-					.onChange(async (value) => {
-						this.plugin.settings.statusBarDotsCount = value;
-						await this.plugin.saveSettings();
-					})
+			.setName("Show chain bar")
+			.setDesc("Show the chain breadcrumb bar at the bottom of the screen.")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.chainBarVisible)
+					.onChange((value) => this.plugin.setChainBarVisible(value))
 			);
 
-		dotsCountSetting.settingEl.toggle(this.plugin.settings.statusBarDisplayMode === "dots");
-
-		maxItemsSetting = new Setting(containerEl)
-			.setName("Max visible items")
-			.setDesc("Number of chain items shown before the bar scrolls horizontally. Increase for wider bars, decrease for a more compact bar.")
-			.addSlider((slider) =>
-				slider
-					.setLimits(2, 20, 1)
-					.setValue(this.plugin.settings.statusBarMaxItems)
-					.setDynamicTooltip()
-					.onChange(async (value) => {
-						this.plugin.settings.statusBarMaxItems = value;
-						await this.plugin.saveSettings();
-					})
-			);
-
-		maxItemsSetting.settingEl.toggle(this.plugin.settings.statusBarDisplayMode === "filenames");
-
-		new Setting(containerEl)
-			.setName("Chain bar position")
-			.setDesc("Where the chain breadcrumb bar appears at the bottom of the screen.")
-			.addDropdown((drop) => {
-				drop.addOption("left", "Left");
-				drop.addOption("center", "Center");
-				drop.addOption("right", "Right (next to status bar)");
-				drop.setValue(this.plugin.settings.chainBarPosition);
-				drop.onChange(async (value) => {
-					this.plugin.settings.chainBarPosition = value as ChainBarPosition;
-					await this.plugin.saveSettings();
-				});
-			});
+		if (this.plugin.settings.chainBarVisible) {
+			this.renderChainBarSettings(containerEl);
+		}
 
 		// ── Checkbox icons ───────────────────────────────────────────────────
 		new Setting(containerEl).setName("Checkbox icons").setHeading();
@@ -557,6 +511,72 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 	}
 
 	// ── Checkbox status list ─────────────────────────────────────────────────
+
+	private renderChainBarSettings(containerEl: HTMLElement): void {
+		let dotsCountSetting: Setting;
+		let maxItemsSetting: Setting;
+
+		new Setting(containerEl)
+			.setName("Display mode")
+			.setDesc("How items are shown in the status bar breadcrumb.")
+			.addDropdown((drop) => {
+				drop.addOption("filenames", "File names");
+				drop.addOption("dots", "Dots");
+				drop.setValue(this.plugin.settings.statusBarDisplayMode);
+				drop.onChange(async (value) => {
+					this.plugin.settings.statusBarDisplayMode = value as "filenames" | "dots";
+					await this.plugin.saveSettings();
+					dotsCountSetting.settingEl.toggle(value === "dots");
+					maxItemsSetting.settingEl.toggle(value === "filenames");
+				});
+			});
+
+		dotsCountSetting = new Setting(containerEl)
+			.setName("Visible dots")
+			.setDesc("Maximum number of dots shown at once. The window stays centered on the current task.")
+			.addSlider((slider) =>
+				slider
+					.setLimits(3, 15, 2)
+					.setValue(this.plugin.settings.statusBarDotsCount)
+					.setDynamicTooltip()
+					.onChange(async (value) => {
+						this.plugin.settings.statusBarDotsCount = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		dotsCountSetting.settingEl.toggle(this.plugin.settings.statusBarDisplayMode === "dots");
+
+		maxItemsSetting = new Setting(containerEl)
+			.setName("Max visible items")
+			.setDesc("Number of chain items shown before the bar scrolls horizontally. Increase for wider bars, decrease for a more compact bar.")
+			.addSlider((slider) =>
+				slider
+					.setLimits(2, 20, 1)
+					.setValue(this.plugin.settings.statusBarMaxItems)
+					.setDynamicTooltip()
+					.onChange(async (value) => {
+						this.plugin.settings.statusBarMaxItems = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		maxItemsSetting.settingEl.toggle(this.plugin.settings.statusBarDisplayMode === "filenames");
+
+		new Setting(containerEl)
+			.setName("Chain bar position")
+			.setDesc("Where the chain breadcrumb bar appears at the bottom of the screen.")
+			.addDropdown((drop) => {
+				drop.addOption("left", "Left");
+				drop.addOption("center", "Center");
+				drop.addOption("right", "Right (next to status bar)");
+				drop.setValue(this.plugin.settings.chainBarPosition);
+				drop.onChange(async (value) => {
+					this.plugin.settings.chainBarPosition = value as ChainBarPosition;
+					await this.plugin.saveSettings();
+				});
+			});
+	}
 
 	private renderCheckboxStatusList(containerEl: HTMLElement): void {
 		const wrapper = containerEl.createDiv({ cls: "chain-rule-list checkbox-status-list" });

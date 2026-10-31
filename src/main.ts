@@ -73,6 +73,7 @@ export default class MarkdownTasksPlugin extends Plugin {
 	settings: MarkdownTasksSettings;
 	linearManager: LinearManager | null = null;
 	private chainStatusBarItem: HTMLElement;
+	private settingTab: MarkdownTasksSettingTab;
 	private statusBarObserver: ResizeObserver | null = null;
 	private linearSyncIntervalId: number | null = null;
 	/** The file currently open in the main editor, kept in sync via workspace events. */
@@ -198,7 +199,8 @@ export default class MarkdownTasksPlugin extends Plugin {
 			})
 		);
 
-		this.addSettingTab(new MarkdownTasksSettingTab(this.app, this));
+		this.settingTab = new MarkdownTasksSettingTab(this.app, this);
+		this.addSettingTab(this.settingTab);
 
 		// Checkbox icons — reading view post-processor
 		this.registerMarkdownPostProcessor((element, ctx) => {
@@ -434,9 +436,7 @@ export default class MarkdownTasksPlugin extends Plugin {
 			id: "toggle-chain-bar",
 			name: "Toggle chain bar",
 			callback: async () => {
-				this.settings.chainBarVisible = !this.settings.chainBarVisible;
-				await this.saveSettings();
-				this.renderChainBreadcrumb();
+				await this.setChainBarVisible(!this.settings.chainBarVisible);
 			},
 		});
 
@@ -591,15 +591,27 @@ export default class MarkdownTasksPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			(await this.loadData()) as Partial<MarkdownTasksSettings>
-		);
+		const data = (await this.loadData()) as Partial<MarkdownTasksSettings> | null;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
+		if (data === null) {
+			// New install: persist so later upgrades can tell it apart from an existing one
+			await this.saveSettings();
+		} else if (data.chainBarVisible === undefined) {
+			// Existing install from before the chain bar was off by default — keep it visible
+			this.settings.chainBarVisible = true;
+		}
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+		this.renderChainBreadcrumb();
+	}
+
+	async setChainBarVisible(visible: boolean): Promise<void> {
+		this.settings.chainBarVisible = visible;
+		await this.saveSettings();
+		// Keep the settings tab in sync when toggled from the command palette
+		this.settingTab.refreshIfOpen();
 	}
 
 	// ── Index management ───────────────────────────────────────────────────
@@ -1157,6 +1169,7 @@ export default class MarkdownTasksPlugin extends Plugin {
 
 	private positionChainBar(): void {
 		const el = this.chainStatusBarItem;
+		if (!this.settings.chainBarVisible) return;
 		const position = this.settings.chainBarPosition ?? "center";
 
 		// Reset all positional properties before re-applying
@@ -1250,8 +1263,9 @@ export default class MarkdownTasksPlugin extends Plugin {
 		if (!this.chainStatusBarItem) return;
 		const el = this.chainStatusBarItem;
 		el.empty();
+		el.toggle(this.settings.chainBarVisible);
 
-		if (!this.settings.chainBarVisible) { this.positionChainBar(); return; }
+		if (!this.settings.chainBarVisible) return;
 
 		// Always anchor to the statusKey-marked current task, not the active file
 		const { statusBarChainIdKey } = this.settings;
