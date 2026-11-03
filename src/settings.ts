@@ -16,6 +16,7 @@ export interface MarkdownTasksSettings {
 	statusBarDotsCount: number; // max visible dots at a time
 	statusBarMaxItems: number; // max items shown before horizontal scroll kicks in (filenames mode)
 	chainBarVisible: boolean;
+	chainRibbonIconVisible: boolean;
 	chainBarPosition: ChainBarPosition;
 	chains: ChainDefinition[];
 	// Linear integration
@@ -60,6 +61,7 @@ export const DEFAULT_SETTINGS: MarkdownTasksSettings = {
 	statusBarDotsCount: 7,
 	statusBarMaxItems: 5,
 	chainBarVisible: false,
+	chainRibbonIconVisible: false,
 	chainBarPosition: "center",
 	chains: [DEFAULT_CHAIN],
 	linearWorkspaces: [],
@@ -171,6 +173,18 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					});
 			});
+
+		// ── Ribbon ──────────────────────────────────────────────────────────
+		new Setting(containerEl).setName("Ribbon").setHeading();
+
+		new Setting(containerEl)
+			.setName("Show chain view icon")
+			.setDesc("Add an icon to the left ribbon that opens the chain view.")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.chainRibbonIconVisible)
+					.onChange((value) => this.plugin.setChainRibbonIconVisible(value))
+			);
 
 		// ── Status bar ──────────────────────────────────────────────────────
 		new Setting(containerEl).setName("Status bar").setHeading();

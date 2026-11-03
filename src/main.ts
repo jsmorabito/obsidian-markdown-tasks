@@ -73,6 +73,7 @@ export default class MarkdownTasksPlugin extends Plugin {
 	settings: MarkdownTasksSettings;
 	linearManager: LinearManager | null = null;
 	private chainStatusBarItem: HTMLElement;
+	private chainRibbonIcon: HTMLElement | null = null;
 	private settingTab: MarkdownTasksSettingTab;
 	private statusBarObserver: ResizeObserver | null = null;
 	private linearSyncIntervalId: number | null = null;
@@ -134,10 +135,8 @@ export default class MarkdownTasksPlugin extends Plugin {
 			(leaf) => new ChainView(leaf, this)
 		);
 
-		// Ribbon icon
-		this.addRibbonIcon("link", "Open chain view", () => {
-			void this.openChainView();
-		});
+		// Ribbon icon (opt-in)
+		this.updateChainRibbonIcon();
 
 		// Chain breadcrumb — standalone div to the left of the status bar
 		this.chainStatusBarItem = document.body.createDiv({ cls: "chain-status-bar-item" });
@@ -600,11 +599,32 @@ export default class MarkdownTasksPlugin extends Plugin {
 			// Existing install from before the chain bar was off by default — keep it visible
 			this.settings.chainBarVisible = true;
 		}
+		if (data !== null && data.chainRibbonIconVisible === undefined) {
+			// Existing install from before the ribbon icon was opt-in — keep it
+			this.settings.chainRibbonIconVisible = true;
+		}
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
 		this.renderChainBreadcrumb();
+	}
+
+	async setChainRibbonIconVisible(visible: boolean): Promise<void> {
+		this.settings.chainRibbonIconVisible = visible;
+		await this.saveSettings();
+		this.updateChainRibbonIcon();
+	}
+
+	private updateChainRibbonIcon(): void {
+		if (this.settings.chainRibbonIconVisible && !this.chainRibbonIcon) {
+			this.chainRibbonIcon = this.addRibbonIcon("link", "Open chain view", () => {
+				void this.openChainView();
+			});
+		} else if (!this.settings.chainRibbonIconVisible && this.chainRibbonIcon) {
+			this.chainRibbonIcon.remove();
+			this.chainRibbonIcon = null;
+		}
 	}
 
 	async setChainBarVisible(visible: boolean): Promise<void> {
