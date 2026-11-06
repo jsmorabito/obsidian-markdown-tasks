@@ -17,6 +17,10 @@ import { LinearManager } from "./linear/manager";
 import { LINEAR_VIEW_TYPE, LinearView } from "./linear/linearView";
 import { applyCheckboxIcons, DEFAULT_CHECKBOX_STATUSES, HALF_CIRCLE_SVG, setSvg } from "./checkboxIcons";
 import { checkboxIconsEditorExtension } from "./checkboxIconsEditor";
+import { TaskAppIntegration } from "./taskApp";
+import { StatusLinkStyler } from "./links/linkStyler";
+import { registerLinearLinks } from "./linear/links";
+import { DEFAULT_LINEAR_REDIRECT_URI, LINEAR_OAUTH_PROTOCOL_ACTION, LinearOAuthFlow } from "./linear/oauth";
 
 /** Simple modal that prompts for a filename and creates a blank .md file. */
 class NewBlankFileModal extends Modal {
@@ -72,8 +76,12 @@ class NewBlankFileModal extends Modal {
 export default class MarkdownTasksPlugin extends Plugin {
 	settings: MarkdownTasksSettings;
 	linearManager: LinearManager | null = null;
+	taskApp: TaskAppIntegration;
+	linkStyler: StatusLinkStyler;
+	private linearOAuth: LinearOAuthFlow;
 	private chainStatusBarItem: HTMLElement;
 	private chainRibbonIcon: HTMLElement | null = null;
+	private linearRibbonIcon: HTMLElement | null = null;
 	private settingTab: MarkdownTasksSettingTab;
 	private statusBarObserver: ResizeObserver | null = null;
 	private linearSyncIntervalId: number | null = null;
@@ -97,6 +105,10 @@ export default class MarkdownTasksPlugin extends Plugin {
 
 		addIcon("linear-logo", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="96 96 320 320" fill="none"><path fill="currentColor" d="M357.358 374.306c1.758 1.758 4.581 1.866 6.416.189a163.595 163.595 0 0 0 5.316-5.081c62.547-62.547 62.547-163.956 0-226.504-62.548-62.547-163.957-62.547-226.504 0a163.595 163.595 0 0 0-5.081 5.316c-1.677 1.835-1.569 4.658.189 6.416l219.664 219.664Z"/><path fill="currentColor" d="M336.333 394.672c2.627-1.528 3.024-5.118.875-7.267L124.595 174.792c-2.149-2.149-5.739-1.752-7.267.875a158.87 158.87 0 0 0-7.119 13.725c-.811 1.771-.41 3.852.968 5.229l206.201 206.202c1.378 1.378 3.459 1.779 5.23.968a158.87 158.87 0 0 0 13.725-7.119Z"/><path fill="currentColor" d="M286.659 413.348c3.619-.707 4.86-5.136 2.253-7.743L106.395 223.088c-2.607-2.607-7.036-1.366-7.743 2.253a160.813 160.813 0 0 0-2.502 18.462 4.666 4.666 0 0 0 1.366 3.654l167.027 167.027a4.667 4.667 0 0 0 3.654 1.366 160.834 160.834 0 0 0 18.462-2.502Z"/><path fill="currentColor" d="M217.031 411.577c4.45 1.107 7.201-4.155 3.959-7.398L107.821 291.01c-3.243-3.242-8.504-.491-7.398 3.959 6.784 27.279 20.838 53.121 42.163 74.445 21.324 21.324 47.166 35.379 74.445 42.163Z"/></svg>`);
 
+		// Styled links to Linear and Task App notes; each integration adds its source.
+		this.linkStyler = new StatusLinkStyler(this.app);
+		this.linkStyler.register(this);
+
 		// ── Linear setup ────────────────────────────────────────────────────
 		this.linearManager = new LinearManager(
 			this.app,
@@ -104,6 +116,17 @@ export default class MarkdownTasksPlugin extends Plugin {
 			() => this.saveSettings()
 		);
 		this.linearManager.refreshClients();
+		registerLinearLinks(this, this.linearManager);
+
+		// Browser sign-in: Linear redirects to obsidian://markdown-tasks-linear-auth?code=…
+		this.linearOAuth = new LinearOAuthFlow(async (workspaceId, clientId, tokens) => {
+			const orgName = await this.linearManager!.storeOAuthTokens(workspaceId, clientId, tokens);
+			new Notice(`Connected to Linear: ${orgName}`);
+			this.settingTab.refreshIfOpen();
+		});
+		this.registerObsidianProtocolHandler(LINEAR_OAUTH_PROTOCOL_ACTION, (params) => {
+			void this.linearOAuth.handleCallback(params);
+		});
 
 		// Register Linear sidebar view
 		this.registerView(
@@ -135,8 +158,9 @@ export default class MarkdownTasksPlugin extends Plugin {
 			(leaf) => new ChainView(leaf, this)
 		);
 
-		// Ribbon icon (opt-in)
+		// Ribbon icons (opt-in)
 		this.updateChainRibbonIcon();
+		this.updateLinearRibbonIcon();
 
 		// Chain breadcrumb — standalone div to the left of the status bar
 		this.chainStatusBarItem = document.body.createDiv({ cls: "chain-status-bar-item" });
@@ -197,6 +221,10 @@ export default class MarkdownTasksPlugin extends Plugin {
 				this.renderChainBreadcrumb();
 			})
 		);
+
+		// ── Task App setup ──────────────────────────────────────────────────
+		this.taskApp = new TaskAppIntegration(this);
+		this.taskApp.register();
 
 		this.settingTab = new MarkdownTasksSettingTab(this.app, this);
 		this.addSettingTab(this.settingTab);
@@ -303,7 +331,7 @@ export default class MarkdownTasksPlugin extends Plugin {
 			name: "Linear: push status of active note",
 			checkCallback: (checking: boolean) => {
 				const file = this.app.workspace.getActiveFile();
-				if (!file || !this.linearManager?.isLinkedNote(file)) return false;
+				if (!file || this.linearManager?.kindOf(file) !== "issue") return false;
 				if (!checking) {
 					// Prompt for target state name via a simple Notice pattern
 					new LinearPushStateModal(this.app, async (stateName) => {
@@ -313,11 +341,6 @@ export default class MarkdownTasksPlugin extends Plugin {
 				}
 				return true;
 			},
-		});
-
-		// Ribbon icon for Linear panel
-		this.addRibbonIcon("linear-logo", "Open linear panel", () => {
-			void this.openLinearView();
 		});
 
 		// Command: new task (uses global task settings)
@@ -574,19 +597,19 @@ export default class MarkdownTasksPlugin extends Plugin {
 	}
 
 	/**
-	 * Start the OAuth flow for a workspace.
-	 * Opens Linear's authorize URL in the default browser.
-	 * The user pastes the code back — a full callback server is out of scope
-	 * for a desktop plugin, so we use a manual code-paste flow for now.
+	 * Start the browser sign-in for a workspace. Linear redirects back to
+	 * Obsidian, and the protocol handler registered in onload finishes it.
 	 */
 	startLinearOAuth(workspaceId: string): void {
-		new LinearOAuthModal(this.app, workspaceId, async (token) => {
-			await this.linearManager?.storeOAuthToken(workspaceId, token);
-			new Notice("Linear workspace connected.");
-			// Refresh settings UI
-			(this.app as { setting?: { open?: () => void } }).setting?.open?.();
-			(this.app as { setting?: { openTabById?: (id: string) => void } }).setting?.openTabById?.("markdown-tasks");
-		}).open();
+		const clientId = this.settings.linearOAuthClientId.trim();
+		if (!clientId) {
+			new Notice("Add your linear OAUTH app's client ID in settings first.");
+			return;
+		}
+		const redirectUri = this.settings.linearOAuthRedirectUri.trim() || DEFAULT_LINEAR_REDIRECT_URI;
+		void this.linearOAuth.start(workspaceId, clientId, redirectUri).then(() => {
+			new Notice("Finish signing in to linear in your browser.");
+		});
 	}
 
 	async loadSettings() {
@@ -616,15 +639,37 @@ export default class MarkdownTasksPlugin extends Plugin {
 		this.updateChainRibbonIcon();
 	}
 
+	/** Adds or removes an opt-in ribbon icon; returns the icon now shown, if any. */
+	private syncRibbonIcon(
+		current: HTMLElement | null,
+		visible: boolean,
+		icon: string,
+		title: string,
+		onClick: () => void
+	): HTMLElement | null {
+		if (visible && !current) return this.addRibbonIcon(icon, title, onClick);
+		if (!visible && current) current.remove();
+		return visible ? current : null;
+	}
+
 	private updateChainRibbonIcon(): void {
-		if (this.settings.chainRibbonIconVisible && !this.chainRibbonIcon) {
-			this.chainRibbonIcon = this.addRibbonIcon("link", "Open chain view", () => {
-				void this.openChainView();
-			});
-		} else if (!this.settings.chainRibbonIconVisible && this.chainRibbonIcon) {
-			this.chainRibbonIcon.remove();
-			this.chainRibbonIcon = null;
-		}
+		this.chainRibbonIcon = this.syncRibbonIcon(
+			this.chainRibbonIcon, this.settings.chainRibbonIconVisible, "link", "Open chain view",
+			() => { void this.openChainView(); }
+		);
+	}
+
+	async setLinearRibbonIconVisible(visible: boolean): Promise<void> {
+		this.settings.linearRibbonIconVisible = visible;
+		await this.saveSettings();
+		this.updateLinearRibbonIcon();
+	}
+
+	private updateLinearRibbonIcon(): void {
+		this.linearRibbonIcon = this.syncRibbonIcon(
+			this.linearRibbonIcon, this.settings.linearRibbonIconVisible, "linear-logo", "Open linear panel",
+			() => { void this.openLinearView(); }
+		);
 	}
 
 	async setChainBarVisible(visible: boolean): Promise<void> {
@@ -1748,53 +1793,6 @@ class LinearPushStateModal extends Modal {
 				this.close();
 				await this.onSubmit(value.trim());
 			})
-		);
-	}
-
-	onClose(): void { this.contentEl.empty(); }
-}
-
-/**
- * OAuth flow modal — for now a manual token-paste approach.
- * A future version can register a custom URI handler to receive the callback.
- */
-class LinearOAuthModal extends Modal {
-	private workspaceId: string;
-	private onToken: (token: string) => Promise<void>;
-
-	constructor(app: App, workspaceId: string, onToken: (token: string) => Promise<void>) {
-		super(app);
-		this.workspaceId = workspaceId;
-		this.onToken = onToken;
-	}
-
-	onOpen(): void {
-		const { contentEl } = this;
-		contentEl.createEl("h2", { text: "Connect linear workspace" });
-		contentEl.createEl("p", {
-			text: "For now, paste a personal API key or an OAUTH access token obtained from linear. Full browser-based OAUTH (one-click) will be added in a future update.",
-			cls: "chain-create-modal-desc",
-		});
-
-		let token = "";
-
-		new Setting(contentEl)
-			.setName("Access token")
-			.addText((text) => {
-				text.inputEl.type = "password";
-				text.setPlaceholder("Lin_API_… or OAUTH token");
-				text.onChange((v) => { token = v; });
-				window.setTimeout(() => text.inputEl.focus(), 0);
-			});
-
-		new Setting(contentEl).addButton((btn) =>
-			btn.setButtonText("Connect").setCta().onClick(async () => {
-				if (!token.trim()) return;
-				this.close();
-				await this.onToken(token.trim());
-			})
-		).addButton((btn) =>
-			btn.setButtonText("Cancel").onClick(() => this.close())
 		);
 	}
 

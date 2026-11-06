@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Returning to Obsidian</title>
+<style>
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 32rem; margin: 4rem auto; padding: 0 1rem; color: #222; background: #fff; }
+  @media (prefers-color-scheme: dark) { body { color: #ddd; background: #1e1e1e; } a { color: #a78bfa; } }
+</style>
+</head>
+<body>
+<!--
+  Forwarding page for Markdown Tasks' "Sign in with Linear", for when Linear
+  won't accept obsidian:// as an OAuth callback URL. Host this file over HTTPS
+  (GitHub Pages works), add its address to the Linear OAuth app's callback
+  URLs, and enter the same address in the plugin's "Callback URL" setting.
+  It only forwards the query string (code and state) to Obsidian; nothing is
+  stored or sent anywhere else.
+-->
+<p id="msg">Returning to Obsidian…</p>
+<p><a id="open" href="#">Open Obsidian</a> if nothing happens.</p>
+<script>
+  var target = "obsidian://markdown-tasks-linear-auth" + window.location.search;
+  document.getElementById("open").href = target;
+  window.location.replace(target);
+</script>
+</body>
+</html>

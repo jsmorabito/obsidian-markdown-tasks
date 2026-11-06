@@ -16,6 +16,10 @@ export interface LinearWorkspaceConfig {
 	oauthToken?: string;
 	/** OAuth refresh token — stored after completing the OAuth flow. */
 	oauthRefreshToken?: string;
+	/** When the OAuth access token expires (epoch ms). */
+	oauthExpiresAt?: number;
+	/** The OAuth app the tokens were issued to; refreshes must use the same one. */
+	oauthClientId?: string;
 }
 
 export interface LinearIssueStub {
@@ -30,6 +34,22 @@ export interface LinearIssueStub {
 	teamName: string;
 	workspaceId: string;  // maps to LinearWorkspaceConfig.id
 }
+
+/** A Linear project or initiative — imported like an issue, but with no team or identifier. */
+export interface LinearProjectStub {
+	kind: "project" | "initiative";
+	id: string;           // Linear UUID
+	title: string;
+	url: string;
+	stateName: string;    // e.g. "In Progress", "Active"
+	stateType: string;    // "backlog" | "planned" | "started" | "paused" | "completed" | "canceled"
+	workspaceId: string;
+}
+
+export type LinearItemKind = "issue" | LinearProjectStub["kind"];
+
+/** Anything that can be imported from Linear as a note. */
+export type LinearItem = ({ kind: "issue" } & LinearIssueStub) | LinearProjectStub;
 
 export interface LinearTeam {
 	id: string;

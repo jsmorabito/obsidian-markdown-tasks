@@ -1089,3 +1089,160 @@ input[type="text"].checkbox-status-mark {
 .chain-rule-reset {
 	margin-left: 8px;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Task App issue links
+   The same pill as the Note Types plugin's styled links, under our own class
+   names. --mt-link-color (optional) tints the pill and the text.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Reading view, and folded Live Preview links rendered as a real <a> ──── */
+
+.markdown-rendered a.internal-link.mt-status-link,
+.cm-editor a.internal-link.mt-status-link {
+  --link-decoration: none;
+  --link-decoration-hover: none;
+  text-decoration: none !important;
+  text-decoration-line: none !important;
+  background: var(--tag-background);
+  color: var(--tag-color) !important;
+  border-radius: var(--radius-s, 4px);
+  padding: 1px 5px;
+  border: var(--tag-border-width, 0px) solid var(--tag-border-color, transparent);
+  font-size: var(--tag-size, inherit);
+  /* Plain inline (not inline-flex) so a long link wraps instead of jumping
+     whole to the next line. */
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.markdown-rendered a.internal-link.mt-status-link:hover,
+.cm-editor a.internal-link.mt-status-link:hover {
+  background: var(--tag-background-hover, var(--interactive-hover));
+  color: var(--tag-color-hover, var(--tag-color)) !important;
+  border-color: var(--tag-border-color-hover, var(--tag-border-color, transparent));
+}
+
+.markdown-rendered a.internal-link.mt-status-link[style*="--mt-link-color"],
+.cm-editor a.internal-link.mt-status-link[style*="--mt-link-color"] {
+  background: color-mix(in srgb, var(--mt-link-color) 15%, transparent);
+  color: var(--mt-link-color) !important;
+}
+
+.markdown-rendered a.internal-link.mt-status-link[style*="--mt-link-color"]:hover,
+.cm-editor a.internal-link.mt-status-link[style*="--mt-link-color"]:hover {
+  background: color-mix(in srgb, var(--mt-link-color) 28%, transparent);
+}
+
+.mt-status-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 3px;
+  vertical-align: middle;
+  line-height: 1;
+  user-select: none;
+  pointer-events: none;
+}
+
+.mt-status-icon svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+
+/* ── Live Preview / source mode (CM6 mark decoration) ───────────────────── */
+
+.cm-editor span.mt-status-link {
+  background: var(--tag-background);
+  padding: 1px 4px;
+  border-radius: var(--radius-s, 4px);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  cursor: pointer;
+}
+
+.cm-editor span.mt-status-link[style*="--mt-link-color"] {
+  background: color-mix(in srgb, var(--mt-link-color) 15%, transparent);
+}
+
+/* While the raw link is expanded CM6 splits the mark into fragments; drop the
+   horizontal padding so `[[`, the text and `]]` don't gap apart. */
+.cm-editor span.mt-status-link.mt-status-link-editing {
+  padding: 1px 0;
+}
+
+.cm-editor span.mt-status-link:hover {
+  background: var(--tag-background-hover, var(--interactive-hover));
+}
+
+.cm-editor span.mt-status-link[style*="--mt-link-color"]:hover {
+  background: color-mix(in srgb, var(--mt-link-color) 28%, transparent);
+}
+
+/* Inner CM6 link spans carry their own decoration, so override them directly. */
+.cm-editor span.mt-status-link,
+.cm-editor span.mt-status-link .cm-hmd-internal-link,
+.cm-editor span.mt-status-link .cm-link,
+.cm-editor span.mt-status-link .cm-underline {
+  text-decoration: none !important;
+  text-decoration-line: none !important;
+  color: var(--tag-color) !important;
+}
+
+.cm-editor span.mt-status-link:hover,
+.cm-editor span.mt-status-link:hover .cm-hmd-internal-link,
+.cm-editor span.mt-status-link:hover .cm-link,
+.cm-editor span.mt-status-link:hover .cm-underline {
+  color: var(--tag-color-hover, var(--tag-color)) !important;
+}
+
+.cm-editor span.mt-status-link[style*="--mt-link-color"],
+.cm-editor span.mt-status-link[style*="--mt-link-color"] .cm-hmd-internal-link,
+.cm-editor span.mt-status-link[style*="--mt-link-color"] .cm-link,
+.cm-editor span.mt-status-link[style*="--mt-link-color"] .cm-underline {
+  color: var(--mt-link-color) !important;
+}
+
+/* Status icon drawn from the mark's own style attribute: a widget inside the
+   mark would split the pill's background in two. */
+.cm-editor span.mt-status-link[style*="--mt-status-icon"]::before {
+  content: '';
+  display: inline-block;
+  pointer-events: none;
+  width: 12px;
+  height: 13px;
+  margin-right: 3px;
+  vertical-align: -1px;
+  background: var(--mt-status-icon) center / contain no-repeat;
+}
+
+/* ── Issue picker ───────────────────────────────────────────────────────── */
+
+.mt-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mt-suggestion .mt-status-icon {
+  margin-right: 0;
+}
+
+.mt-suggestion-id {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.mt-suggestion-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mt-suggestion-project {
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+  flex-shrink: 0;
+}

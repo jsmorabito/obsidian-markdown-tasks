@@ -6,32 +6,96 @@
  */
 
 import { requestUrl } from "obsidian";
-import type { LinearIssueStub, LinearTeam } from "../types";
+import type { LinearIssueStub, LinearProjectStub, LinearTeam } from "../types";
 
 const LINEAR_API = "https://api.linear.app/graphql";
 
+const ISSUE_FIELDS = "id identifier title url priority state { name type } team { id name }";
+const PROJECT_FIELDS = "id name url status { name type }";
+const INITIATIVE_FIELDS = "id name url status";
+
+interface IssueNode {
+	id: string;
+	identifier: string;
+	title: string;
+	url: string;
+	priority: number;
+	state: { name: string; type: string };
+	team: { id: string; name: string };
+}
+
+interface ProjectNode {
+	id: string;
+	name: string;
+	url: string;
+	status: { name: string; type: string } | null;
+}
+
+/** Initiative status is a bare enum ("Planned" | "Active" | "Completed"). */
+interface InitiativeNode {
+	id: string;
+	name: string;
+	url: string;
+	status: string | null;
+}
+
+const INITIATIVE_STATE_TYPES: Record<string, string> = {
+	planned: "planned",
+	active: "started",
+	completed: "completed",
+};
+
+/**
+ * The Authorization header value: an API key, or `Bearer <token>` for OAuth.
+ * `refresh` asks for a new OAuth token after Linear rejected the current one;
+ * it resolves to null when there is no way to get one (an API key, or OAuth
+ * without a refresh token), so the request isn't retried with the same value.
+ */
+export type LinearAuthProvider = (refresh: boolean) => Promise<string | null>;
+
+/** Linear reports a bad token as HTTP 401, or as HTTP 400 with an AUTHENTICATION_ERROR code. */
+function isAuthError(res: { status: number; text: string }): boolean {
+	if (res.status === 401) return true;
+	if (res.status !== 400) return false;
+	try {
+		const json = JSON.parse(res.text) as { errors?: { extensions?: { code?: string } }[] };
+		return !!json.errors?.some((e) => e.extensions?.code === "AUTHENTICATION_ERROR");
+	} catch {
+		return false;
+	}
+}
+
 export class LinearClient {
 	private workspaceId: string;
-	private token: string; // API key or OAuth access token
+	private getAuth: LinearAuthProvider;
 
-	constructor(workspaceId: string, token: string) {
+	constructor(workspaceId: string, getAuth: LinearAuthProvider) {
 		this.workspaceId = workspaceId;
-		this.token = token;
+		this.getAuth = getAuth;
 	}
 
 	// ── Core request ────────────────────────────────────────────────────────
 
 	private async query<T>(gql: string, variables?: Record<string, unknown>): Promise<T> {
-		const res = await requestUrl({
-			url: LINEAR_API,
-			method: "POST",
-			throw: false,
-			headers: {
-				"Content-Type": "application/json",
-				Authorization: this.token,
-			},
-			body: JSON.stringify({ query: gql, variables }),
-		});
+		const send = (auth: string) =>
+			requestUrl({
+				url: LINEAR_API,
+				method: "POST",
+				throw: false,
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: auth,
+				},
+				body: JSON.stringify({ query: gql, variables }),
+			});
+		const auth = await this.getAuth(false);
+		if (!auth) throw new Error("This workspace isn't connected to Linear.");
+		let res = await send(auth);
+		// An OAuth token can expire early or be revoked; refresh once and retry.
+		if (isAuthError(res)) {
+			const fresh = await this.getAuth(true);
+			if (fresh) res = await send(fresh);
+		}
 
 		if (res.status < 200 || res.status >= 300) {
 			throw new Error(`Linear API HTTP ${res.status}`);
@@ -96,7 +160,7 @@ export class LinearClient {
 		if (opts.teamId) filter["team"] = { id: { eq: opts.teamId } };
 		if (opts.assignedToMe) filter["assignee"] = { isMe: { eq: true } };
 		if (!opts.includeCompleted) {
-			filter["state"] = { type: { nin: ["completed", "cancelled"] } };
+			filter["state"] = { type: { nin: ["completed", "canceled", "cancelled"] } };
 		}
 
 		const data = await this.query<{
@@ -189,6 +253,107 @@ export class LinearClient {
 		} catch {
 			return null;
 		}
+	}
+
+	/** Full-text search over issues, matching identifiers as well as titles. */
+	async searchIssues(term: string, limit = 25): Promise<LinearIssueStub[]> {
+		const data = await this.query<{ searchIssues: { nodes: IssueNode[] } }>(
+			`query SearchIssues($term: String!, $first: Int) {
+				searchIssues(term: $term, first: $first) { nodes { ${ISSUE_FIELDS} } }
+			}`,
+			{ term, first: limit }
+		);
+		return data.searchIssues.nodes.map((n) => this.toIssue(n));
+	}
+
+	// ── Projects & initiatives ──────────────────────────────────────────────
+
+	/** Projects, most recently updated first; `query` filters by name. */
+	async getProjects(query?: string, limit = 50): Promise<LinearProjectStub[]> {
+		const filter = query ? { name: { containsIgnoreCase: query } } : undefined;
+		const data = await this.query<{ projects: { nodes: ProjectNode[] } }>(
+			`query GetProjects($filter: ProjectFilter, $first: Int) {
+				projects(filter: $filter, first: $first, orderBy: updatedAt) { nodes { ${PROJECT_FIELDS} } }
+			}`,
+			{ filter, first: limit }
+		);
+		return data.projects.nodes.map((n) => this.toProject(n));
+	}
+
+	async getProject(id: string): Promise<LinearProjectStub | null> {
+		try {
+			const data = await this.query<{ project: ProjectNode }>(
+				`query GetProject($id: String!) { project(id: $id) { ${PROJECT_FIELDS} } }`,
+				{ id }
+			);
+			return this.toProject(data.project);
+		} catch {
+			return null;
+		}
+	}
+
+	/** Initiatives, most recently updated first; `query` filters by name. */
+	async getInitiatives(query?: string, limit = 50): Promise<LinearProjectStub[]> {
+		const filter = query ? { name: { containsIgnoreCase: query } } : undefined;
+		const data = await this.query<{ initiatives: { nodes: InitiativeNode[] } }>(
+			`query GetInitiatives($filter: InitiativeFilter, $first: Int) {
+				initiatives(filter: $filter, first: $first, orderBy: updatedAt) { nodes { ${INITIATIVE_FIELDS} } }
+			}`,
+			{ filter, first: limit }
+		);
+		return data.initiatives.nodes.map((n) => this.toInitiative(n));
+	}
+
+	async getInitiative(id: string): Promise<LinearProjectStub | null> {
+		try {
+			const data = await this.query<{ initiative: InitiativeNode }>(
+				`query GetInitiative($id: String!) { initiative(id: $id) { ${INITIATIVE_FIELDS} } }`,
+				{ id }
+			);
+			return this.toInitiative(data.initiative);
+		} catch {
+			return null;
+		}
+	}
+
+	private toIssue(n: IssueNode): LinearIssueStub {
+		return {
+			id: n.id,
+			identifier: n.identifier,
+			title: n.title,
+			url: n.url,
+			priority: n.priority,
+			stateName: n.state.name,
+			stateType: n.state.type,
+			teamId: n.team.id,
+			teamName: n.team.name,
+			workspaceId: this.workspaceId,
+		};
+	}
+
+	private toProject(n: ProjectNode): LinearProjectStub {
+		return {
+			kind: "project",
+			id: n.id,
+			title: n.name,
+			url: n.url,
+			stateName: n.status?.name ?? "",
+			stateType: n.status?.type ?? "",
+			workspaceId: this.workspaceId,
+		};
+	}
+
+	private toInitiative(n: InitiativeNode): LinearProjectStub {
+		const status = n.status ?? "";
+		return {
+			kind: "initiative",
+			id: n.id,
+			title: n.name,
+			url: n.url,
+			stateName: status,
+			stateType: INITIATIVE_STATE_TYPES[status.toLowerCase()] ?? "",
+			workspaceId: this.workspaceId,
+		};
 	}
 
 	// ── Mutations ───────────────────────────────────────────────────────────
@@ -287,60 +452,4 @@ export class LinearClient {
 		);
 		return data.workflowStates.nodes;
 	}
-}
-
-// ── OAuth helpers ────────────────────────────────────────────────────────────
-
-export const LINEAR_OAUTH_AUTHORIZE_URL = "https://linear.app/oauth/authorize";
-export const LINEAR_OAUTH_TOKEN_URL = "https://api.linear.app/oauth/token";
-
-/**
- * Build the URL the user visits to start the OAuth flow.
- * `redirectUri` must exactly match what you registered in the Linear app settings.
- */
-export function buildOAuthUrl(opts: {
-	clientId: string;
-	redirectUri: string;
-	state: string;
-	scopes?: string[];
-}): string {
-	const scopes = opts.scopes ?? ["read", "write", "issues:create"];
-	const params = new URLSearchParams({
-		client_id: opts.clientId,
-		redirect_uri: opts.redirectUri,
-		response_type: "code",
-		scope: scopes.join(","),
-		state: opts.state,
-		actor: "user",
-	});
-	return `${LINEAR_OAUTH_AUTHORIZE_URL}?${params.toString()}`;
-}
-
-/**
- * Exchange an authorization code for an access token.
- * Should be called server-side or via a proxy — not directly in the plugin
- * unless the client secret is acceptable in the desktop context.
- */
-export async function exchangeOAuthCode(opts: {
-	code: string;
-	clientId: string;
-	clientSecret: string;
-	redirectUri: string;
-}): Promise<{ accessToken: string; tokenType: string; scope: string }> {
-	const res = await requestUrl({
-		url: LINEAR_OAUTH_TOKEN_URL,
-		method: "POST",
-		throw: false,
-		headers: { "Content-Type": "application/x-www-form-urlencoded" },
-		body: new URLSearchParams({
-			code: opts.code,
-			client_id: opts.clientId,
-			client_secret: opts.clientSecret,
-			redirect_uri: opts.redirectUri,
-			grant_type: "authorization_code",
-		}).toString(),
-	});
-	if (res.status < 200 || res.status >= 300) throw new Error(`OAuth token exchange failed: ${res.status}`);
-	const json = res.json as { access_token: string; token_type: string; scope: string };
-	return { accessToken: json.access_token, tokenType: json.token_type, scope: json.scope };
 }

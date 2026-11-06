@@ -1,7 +1,9 @@
-import { AbstractInputSuggest, App, PluginSettingTab, Setting, TFile } from "obsidian";
+import { AbstractInputSuggest, App, Notice, PluginSettingTab, Setting, TFile } from "obsidian";
 import type { ChainDefinition, FrontmatterRule, LinearWorkspaceConfig } from "./types";
 import { buildIconEl, CheckboxStatus, DEFAULT_CHECKBOX_STATUSES } from "./checkboxIcons";
 import MarkdownTasksPlugin from "./main";
+import { renderTaskAppSettings } from "./taskApp/settingsSection";
+import { DEFAULT_LINEAR_REDIRECT_URI } from "./linear/oauth";
 
 export type StatusBarDisplayMode = "filenames" | "dots";
 export type ChainBarPosition = "left" | "center" | "right";
@@ -17,6 +19,7 @@ export interface MarkdownTasksSettings {
 	statusBarMaxItems: number; // max items shown before horizontal scroll kicks in (filenames mode)
 	chainBarVisible: boolean;
 	chainRibbonIconVisible: boolean;
+	linearRibbonIconVisible: boolean;
 	chainBarPosition: ChainBarPosition;
 	chains: ChainDefinition[];
 	// Linear integration
@@ -24,6 +27,17 @@ export interface MarkdownTasksSettings {
 	linearSyncOnOpen: boolean;
 	linearSyncIntervalMinutes: number; // 0 = disabled
 	linearIssueFolder: string; // folder where imported issues are created
+	linearStyleLinks: boolean;
+	linearOAuthClientId: string; // client ID of the user's Linear OAuth app
+	linearOAuthRedirectUri: string; // empty = obsidian://markdown-tasks-linear-auth
+	linearLinkColor: string; // empty = theme tag colours
+	// Task App integration
+	taskAppUrl: string; // API server, e.g. http://localhost:4100
+	taskAppToken: string; // the server's API_TOKEN
+	taskAppWebUrl: string; // where issues open in the browser; empty = taskAppUrl
+	taskAppFolder: string; // folder where imported issues are created
+	taskAppStyleLinks: boolean;
+	taskAppLinkColor: string; // empty = theme tag colours
 	// Checkbox icons
 	enableCheckboxIcons: boolean;
 	checkboxStatuses: CheckboxStatus[];
@@ -62,12 +76,23 @@ export const DEFAULT_SETTINGS: MarkdownTasksSettings = {
 	statusBarMaxItems: 5,
 	chainBarVisible: false,
 	chainRibbonIconVisible: false,
+	linearRibbonIconVisible: false,
 	chainBarPosition: "center",
 	chains: [DEFAULT_CHAIN],
 	linearWorkspaces: [],
 	linearSyncOnOpen: true,
 	linearSyncIntervalMinutes: 0,
 	linearIssueFolder: "Linear",
+	linearStyleLinks: true,
+	linearOAuthClientId: "",
+	linearOAuthRedirectUri: "",
+	linearLinkColor: "",
+	taskAppUrl: "",
+	taskAppToken: "",
+	taskAppWebUrl: "",
+	taskAppFolder: "Tasks",
+	taskAppStyleLinks: true,
+	taskAppLinkColor: "",
 	enableCheckboxIcons: false,
 	checkboxStatuses: DEFAULT_CHECKBOX_STATUSES,
 };
@@ -186,6 +211,15 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 					.onChange((value) => this.plugin.setChainRibbonIconVisible(value))
 			);
 
+		new Setting(containerEl)
+			.setName("Show linear panel icon")
+			.setDesc("Add an icon to the left ribbon that opens the linear panel.")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.linearRibbonIconVisible)
+					.onChange((value) => this.plugin.setLinearRibbonIconVisible(value))
+			);
+
 		// ── Status bar ──────────────────────────────────────────────────────
 		new Setting(containerEl).setName("Status bar").setHeading();
 
@@ -255,6 +289,9 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 
 		// ── Linear integration ───────────────────────────────────────────────
 		this.renderLinearSettings(containerEl);
+
+		// ── Task App integration ─────────────────────────────────────────────
+		renderTaskAppSettings(containerEl, this.plugin);
 
 		if (scrollEl) scrollEl.scrollTop = scrollTop;
 	}
@@ -684,7 +721,7 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 		// Issue folder
 		new Setting(containerEl)
 			.setName("Issue folder")
-			.setDesc("Folder where imported linear issues are created.")
+			.setDesc("Folder where imported linear issues, projects and initiatives are created.")
 			.addText((text) =>
 				text
 					.setPlaceholder("Linear")
@@ -693,6 +730,28 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 						this.plugin.settings.linearIssueFolder = value.trim() || "Linear";
 						await this.plugin.saveSettings();
 					})
+			);
+
+		new Setting(containerEl)
+			.setName("Style linear links")
+			.setDesc("Show links to imported linear notes as pills with a status icon.")
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.linearStyleLinks).onChange(async (value) => {
+					this.plugin.settings.linearStyleLinks = value;
+					await this.plugin.saveSettings();
+					this.plugin.linkStyler.refreshAll(true);
+				})
+			);
+
+		new Setting(containerEl)
+			.setName("Linear link colour")
+			.setDesc("Any CSS colour. Leave empty to use the theme's tag colours.")
+			.addText((text) =>
+				text.setValue(this.plugin.settings.linearLinkColor).onChange(async (value) => {
+					this.plugin.settings.linearLinkColor = value.trim();
+					await this.plugin.saveSettings();
+					this.plugin.linkStyler.refreshAll(true);
+				})
 			);
 
 		// Sync on open
@@ -722,9 +781,47 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 					})
 			);
 
+		new Setting(containerEl).setName("Sign in with linear").setHeading();
+		containerEl.createEl("p", {
+			text: "To connect workspaces from the browser, create an OAUTH application in linear → settings → API → OAUTH applications. Add the callback URL below to it, then paste its client ID here. No client secret is needed.",
+			cls: "setting-item-description",
+		});
+
+		new Setting(containerEl)
+			.setName("Client ID")
+			.setDesc("From your linear OAUTH application.")
+			.addText((text) =>
+				text.setValue(this.plugin.settings.linearOAuthClientId).onChange(async (value) => {
+					this.plugin.settings.linearOAuthClientId = value.trim();
+					await this.plugin.saveSettings();
+				})
+			);
+
+		new Setting(containerEl)
+			.setName("Callback URL")
+			.setDesc("Add this to the OAUTH application's callback urls. If linear won't accept an Obsidian:// address, host the forwarding page from the plugin's docs folder and enter its HTTPS address here.")
+			.addText((text) =>
+				text
+					.setPlaceholder(DEFAULT_LINEAR_REDIRECT_URI)
+					.setValue(this.plugin.settings.linearOAuthRedirectUri)
+					.onChange(async (value) => {
+						this.plugin.settings.linearOAuthRedirectUri = value.trim();
+						await this.plugin.saveSettings();
+					})
+			)
+			.addExtraButton((btn) =>
+				btn
+					.setIcon("copy")
+					.setTooltip("Copy callback URL")
+					.onClick(() => {
+						const url = this.plugin.settings.linearOAuthRedirectUri || DEFAULT_LINEAR_REDIRECT_URI;
+						void navigator.clipboard.writeText(url).then(() => new Notice("Callback URL copied."));
+					})
+			);
+
 		new Setting(containerEl).setName("Workspaces").setHeading();
 		containerEl.createEl("p", {
-			text: "Each workspace connects to one linear organization. You can use a personal API key (paste from linear → settings → API) or OAUTH.",
+			text: "Each workspace connects to one linear organization, by signing in with linear or with a personal API key (linear → settings → API).",
 			cls: "setting-item-description",
 		});
 
@@ -739,7 +836,7 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 					this.plugin.settings.linearWorkspaces.push({
 						id: `workspace-${Date.now()}`,
 						name: "New Workspace",
-						authType: "apiKey",
+						authType: "oauth",
 					});
 					await this.plugin.saveSettings();
 					this.refresh();
@@ -807,8 +904,8 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 				.setName("Auth type")
 				.setDesc("How to authenticate with this workspace.")
 				.addDropdown((drop) => {
+					drop.addOption("oauth", "Sign in with linear");
 					drop.addOption("apiKey", "Personal API key");
-					drop.addOption("oauth", "OAUTH");
 					drop.setValue(ws.authType);
 					drop.onChange(async (value) => {
 						this.plugin.settings.linearWorkspaces[idx]!.authType = value as "apiKey" | "oauth";
@@ -836,16 +933,15 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 			} else {
 				// OAuth
 				const oauthSetting = new Setting(section)
-					.setName("OAUTH")
+					.setName("Linear account")
 					.setDesc(
 						ws.oauthToken
-							? "Connected. Click to reconnect."
-							: "Not connected. Click to start the OAuth flow."
+							? "Connected. Select reconnect to sign in again or pick another workspace."
+							: "Not connected. Select connect to sign in with linear in your browser."
 					);
 				oauthSetting.addButton((btn) => {
-					btn.setButtonText(ws.oauthToken ? "Reconnect" : "Connect with Linear");
-					if (ws.oauthToken) btn.setDestructive();
-					else btn.setCta();
+					btn.setButtonText(ws.oauthToken ? "Reconnect" : "Connect");
+					if (!ws.oauthToken) btn.setCta();
 					btn.onClick(() => {
 						this.plugin.startLinearOAuth(ws.id);
 					});
@@ -856,8 +952,11 @@ export class MarkdownTasksSettingTab extends PluginSettingTab {
 							.setButtonText("Disconnect")
 							.setDestructive()
 							.onClick(async () => {
-								this.plugin.settings.linearWorkspaces[idx]!.oauthToken = undefined;
-								this.plugin.settings.linearWorkspaces[idx]!.oauthRefreshToken = undefined;
+								const w = this.plugin.settings.linearWorkspaces[idx]!;
+								w.oauthToken = undefined;
+								w.oauthRefreshToken = undefined;
+								w.oauthExpiresAt = undefined;
+								w.oauthClientId = undefined;
 								await this.plugin.saveSettings();
 								this.plugin.linearManager?.refreshClients();
 								this.refresh();
